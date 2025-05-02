@@ -7,4 +7,4 @@
 여기에서는 LangBuilder를 이용해 Base Workflow를 정의합니다. [LangBuilder를](https://build.langchain.com/)에 접속하여 아래와 같이 workflow를 그리고 code generator를 이용해 다운로드합니다. 세부 내용은 [LangGraph Builder로 Agent 개발하기](https://github.com/kyopark2014/langgraph-builder)을 참조합니다.
 
 
-<img src="https://github.com/user-attachments/assets/59c2f2c8-e88d-4f2d-a4f7-4431af72eef2" width="700">
+<img src="https://github.com/user-attachments/assets/59c2f2c8-e88d-4f2d-a4f7-4431af72eef2" width="600">
