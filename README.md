@@ -5,3 +5,5 @@
 ## LangBuilder를 이용해 Workflow 구현
 
 여기에서는 LangBuilder를 이용해 Base Workflow를 정의합니다. [LangBuilder를](https://build.langchain.com/)에 접속하여 아래와 같이 workflow를 그리고 code generator를 이용해 다운로드합니다. 세부 내용은 [LangGraph Builder로 Agent 개발하기](https://github.com/kyopark2014/langgraph-builder)을 참조합니다.
+
+![image](https://github.com/user-attachments/assets/b9a302bf-080c-47e0-8d48-15d335d2c4db)
