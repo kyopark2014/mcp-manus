@@ -5,6 +5,7 @@ import traceback
 import uuid
 import asyncio
 import json
+import implementation
 
 from botocore.config import Config
 from langchain_aws import ChatBedrock
@@ -313,7 +314,6 @@ def tool_info(tools, st):
         tool_info += f"name: {tool.name}\n"    
         if hasattr(tool, 'description'):
             tool_info += f"description: {tool.description}\n"
-        tool_info += f"args_schema: {tool.args_schema}\n\n"
         tool_list.append(tool.name)
     # st.info(f"{tool_info}")
     st.info(f"Tools: {tool_list}")
@@ -499,37 +499,49 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
     async with  MultiServerMCPClient(server_params) as client:
         references = []
         ref = ""
-        with st.status("thinking...", expanded=True, state="running") as status:                       
-            tools = client.get_tools()
-            logger.info(f"tools: {tools}")
+        
+        # status 대신 progress bar 사용
+        progress_bar = st.progress(0)
+        progress_bar.progress(10)
+        
+        tools = client.get_tools()
+        logger.info(f"tools: {tools}")
 
-            tool_info = []
-            for tool in tools:
-                name = tool.name
-                description = tool.description
-                args_schema = tool.args_schema
-                tool_info.append(f"name: {name}, description: {description}, args_schema: {args_schema}")
+        toolList = []
+        for tool in tools:
+            name = tool.name
+            description = tool.description
+            # args_schema = tool.args_schema
+            # toolList.append(f"name: {name}, description: {description}, args_schema: {args_schema}")
+            description = description.replace("\n", "")
+            toolList.append(f"{name}: {description}")
 
-            logger.info(f"tool_info: {tool_info}")
+        logger.info(f"toolList: {toolList}")
 
-            if debug_mode == "Enable":
-                tool_info(tools, st)
+        if debug_mode == "Enable":
+            tool_info(toolList, st)
 
-            # langgraph agent
-            response = manus.run(query)
-            logger.info(f"response: {response}")
+        progress_bar.progress(30)
+        
+        # langgraph agent
+        response = manus.run(query)
+        logger.info(f"response: {response}")
 
-            result = response["messages"][-1].content
-            logger.info(f"result: {result}")
+        progress_bar.progress(60)
 
-            image_url, references = show_status_message(response["messages"], st)     
-            
-            if references:
-                ref = "\n\n### Reference\n"
-            for i, reference in enumerate(references):
-                ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+        result = response["messages"][-1].content
+        logger.info(f"result: {result}")
 
-            result += ref
+        image_url, references = show_status_message(response["messages"], st)     
+        
+        if references:
+            ref = "\n\n### Reference\n"
+        for i, reference in enumerate(references):
+            ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+
+        result += ref
+
+        progress_bar.progress(100)
 
         if model_type == "nova":
             result = extract_thinking_tag(result, st) # for nova

@@ -84,7 +84,7 @@ with st.sidebar:
     reasoningMode = 'Enable' if select_reasoning and modelName=='Claude 3.7 Sonnet' else 'Disable'
     logger.info(f"reasoningMode: {reasoningMode}")
 
-    chat.update(modelName, reasoningMode, debugMode="Enable", multiRegion="Disable", mcp="Disable")
+    chat.update(modelName, reasoningMode, debugMode="Enable", multiRegion="Disable", mcp=mcp)
     
     st.success(f"Connected to {modelName}", icon="💚")
     clear_button = st.button("대화 초기화", key="clear")

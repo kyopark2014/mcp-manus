@@ -347,7 +347,7 @@ export class CdkMcpManusStack extends cdk.Stack {
       },
     });
     
-/*
+
     const codeInterpreterSecret = new secretsmanager.Secret(this, `code-interpreter-secret-for-${projectName}`, {
       description: 'secret for code interpreter api key', // code interpreter
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -754,6 +754,6 @@ export class CdkMcpManusStack extends cdk.Stack {
     })
     listener.addAction(`RedirectHttpListener-for-${projectName}`, {
       action: defaultAction
-    });    */
+    });   
   }
 }
