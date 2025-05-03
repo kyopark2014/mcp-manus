@@ -163,7 +163,6 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             with st.status("thinking...", expanded=True, state="running") as status:
                 # response = manus.run(prompt)
                 response = chat.run_agent(prompt, "Disable", st)
-                st.write(response)
                 logger.info(f"response: {response}")
 
                 if response.find('<thinking>') != -1:
@@ -171,6 +170,7 @@ if prompt := st.chat_input("메시지를 입력하세요."):
                     response = response[response.find('</thinking>')+12:]
                     logger.info(f"response without tag: {response}")
 
+                st.write(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
                 chat.save_chat_history(prompt, response)

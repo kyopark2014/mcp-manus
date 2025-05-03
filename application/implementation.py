@@ -1,11 +1,10 @@
 import sys
 import os
-
 import utils
 import os
 import re
-from datetime import datetime
 
+from datetime import datetime
 from typing_extensions import TypedDict
 from stub import ManusAgent
 from langchain_core.prompts import PromptTemplate
@@ -16,6 +15,7 @@ from typing import Literal
 
 from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
+from langgraph.constants import START, END
 
 config = utils.load_config()
 logger = utils.CreateLogger("graph-implementation")
@@ -28,24 +28,23 @@ class State(TypedDict):
     full_plan: str
     deep_thinking_mode: bool
     search_before_planning: bool
+    full_response: str
 
 def Coordinator(state: State) -> dict:
     """Coordinator node that communicate with customers."""
-    logger.info("Coordinator talking.")
+    logger.info(f"###### Coordinator ######")
+    logger.info(f"state: {state}")
 
-    
+    # chat 모듈을 함수 내부에서 임포트
+    import chat
 
     question = state["question"]
 
     prompt_name = "coordinator"
-    system_prompt = PromptTemplate(
-        input_variables=["CURRENT_TIME"],
-        template=get_prompt_template(prompt_name),
-    ).format(CURRENT_TIME=datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"), **state)
 
+    system_prompt=get_prompt_template(prompt_name)
     logger.info(f"system_prompt: {system_prompt}")
-
-    import chat
+    
     llm = chat.get_chat(extended_thinking="Disable")
     coordinator_prompt = ChatPromptTemplate.from_messages(
         [
@@ -55,46 +54,56 @@ def Coordinator(state: State) -> dict:
     )
 
     prompt = coordinator_prompt | llm 
-    result = prompt.invoke({"question": question})
-    logger.info(f"result: {result}")
+    result = prompt.invoke({
+        "question": question,
+        "CURRENT_TIME": datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"),
+    })
+    logger.info(f"result of Coordinator: {result}")
 
-    return {
-        "next": "Planner", 
-        "question": question, 
-        "full_plan": state.get("full_plan", ""),
-        "deep_thinking_mode": state.get("deep_thinking_mode", False),
-        "search_before_planning": state.get("search_before_planning", False)
-    }
+    if result.content == 'to_planner()':
+        logger.info(f"next: Planner")
+        return {
+            "next": "Planner"
+        }
+    else:
+        logger.info(f"next: END")
+        return {
+            "next": END,
+            "full_response": result.content
+        }
 
 def Planner(state: State) -> dict:
     logger.info(f"###### Planner ######")
     logger.info(f"state: {state}")
 
-    question = state["question"]
+    team_members = state["team_members"]
+    logger.info(f"team_members: {team_members}")
 
     prompt_name = "planner"
-    system_prompt = PromptTemplate(
-        input_variables=["CURRENT_TIME"],
-        template=get_prompt_template(prompt_name),
-    ).format(CURRENT_TIME=datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"), **state)
 
+    system_prompt = get_prompt_template(prompt_name)
     logger.info(f"system_prompt: {system_prompt}")
 
     import chat
     llm = chat.get_chat(extended_thinking="Disable")
     planner_prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", system_prompt),
-            ("human", "Question: {question}"),
+            ("system", system_prompt)
         ]
     )
 
     prompt = planner_prompt | llm 
-    result = prompt.invoke({"question": question})
+    result = prompt.invoke({
+        "CURRENT_TIME": datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"),
+        "team_members": team_members
+    })
     logger.info(f"result: {result}")
 
     return {
-        # Add your state update logic here
+        "next": "Operator",
+        "full_plan": state.get("full_plan", ""),
+        "deep_thinking_mode": state.get("deep_thinking_mode", False),
+        "search_before_planning": state.get("search_before_planning", False)
     }
 
 def Operator(state: State) -> dict:
@@ -112,7 +121,7 @@ def to_planner(state: State) -> str:
     if state["next"] == "Planner":
         return "Planner"
     else:
-        return "END"
+        return END
 
 def to_operator(state: State) -> str:
     logger.info(f"###### to_operator ######")
@@ -146,19 +155,11 @@ agent = ManusAgent(
 
 manus_agent = agent.compile()
 
-# 테스트용 입력 수정
-test_state = {
-    "question": "테스트 질문입니다.",
-    "TEAM_MEMBERS": [],
-    "next": "",
-    "full_plan": "",
-    "deep_thinking_mode": False,
-    "search_before_planning": False
-}
-logger.info(manus_agent.invoke(test_state))
-
-def run(question: str):
-    inputs = {"question": question}    
+def run(question: str, toolList: list):
+    inputs = {
+        "question": question,
+        "team_members": toolList
+    }
     config = {
         "recursion_limit": 50
     }
@@ -169,4 +170,4 @@ def run(question: str):
     
     logger.info(f"value: {value}")
 
-    return value["generation"]
+    return value["full_response"]

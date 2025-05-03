@@ -5,16 +5,15 @@ import traceback
 import uuid
 import asyncio
 import json
-import implementation
+import mcp_client
 
 from botocore.config import Config
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferWindowMemory
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 logger = utils.CreateLogger("chat")
 
@@ -249,263 +248,43 @@ def general_conversation(query):
         
     return response
 
-def extract_thinking_tag(response, st):
-    if response.find('<thinking>') != -1:
-        status = response[response.find('<thinking>')+10:response.find('</thinking>')]
-        logger.info(f"gent_thinking: {status}")
-        
-        if debug_mode=="Enable":
-            st.info(status)
-
-        if response.find('<thinking>') == 0:
-            msg = response[response.find('</thinking>')+12:]
-        else:
-            msg = response[:response.find('<thinking>')]
-        logger.info(f"msg: {msg}")
-    else:
-        msg = response
-
-    return msg
-
-def load_multiple_mcp_server_parameters():
-    logger.info(f"mcp_json: {mcp_json}")
-
-    mcpServers = mcp_json.get("mcpServers")
-    logger.info(f"mcpServers: {mcpServers}")
-  
-    server_info = {}
-    if mcpServers is not None:
-        command = ""
-        args = []
-        for server in mcpServers:
-            logger.info(f"server: {server}")
-
-            config = mcpServers.get(server)
-            logger.info(f"config: {config}")
-
-            if "command" in config:
-                command = config["command"]
-            if "args" in config:
-                args = config["args"]
-            if "env" in config:
-                env = config["env"]
-
-                server_info[server] = {
-                    "command": command,
-                    "args": args,
-                    "env": env,
-                    "transport": "stdio"
-                }
-            else:
-                server_info[server] = {
-                    "command": command,
-                    "args": args,
-                    "transport": "stdio"
-                }
-    logger.info(f"server_info: {server_info}")
-
-    return server_info
+def run_agent(query, historyMode, st):
+    # mcp_client 모듈을 함수 내부에서 임포트
+    import mcp_client
+    result = mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode)
+    logger.info(f"result: {result}")
+    
+    return result
 
 def tool_info(tools, st):
-    tool_info = ""
-    tool_list = []
     st.info("Tool 정보를 가져옵니다.")
-    for tool in tools:
-        tool_info += f"name: {tool.name}\n"    
-        if hasattr(tool, 'description'):
-            tool_info += f"description: {tool.description}\n"
-        tool_list.append(tool.name)
-    # st.info(f"{tool_info}")
-    st.info(f"Tools: {tool_list}")
+    if isinstance(tools, list):
+        if tools and isinstance(tools[0], str):
+            # 문자열 리스트인 경우
+            st.info(f"Tools: {tools}")
+        else:
+            # Tool 객체 리스트인 경우
+            tool_info = ""
+            tool_list = []
+            for tool in tools:
+                tool_info += f"name: {tool.name}\n"    
+                if hasattr(tool, 'description'):
+                    tool_info += f"description: {tool.description}\n"
+                tool_list.append(tool.name)
+            st.info(f"Tools: {tool_list}")
+    else:
+        st.error("잘못된 도구 정보 형식입니다.")
 
-def show_status_message(response, st):
-    image_url = []
-    references = []
-    for i, re in enumerate(response):
-        logger.info(f"message[{i}]: {re}")
-
-        if i==len(response)-1:
-            break
-
-        if isinstance(re, AIMessage):
-            logger.info(f"AIMessage: {re}")
-            if re.content:
-                logger.info(f"content: {re.content}")
-                content = re.content
-                if len(content) > 500:
-                    content = content[:500] + "..."       
-                if debug_mode == "Enable": 
-                    st.info(f"{content}")
-            if hasattr(re, 'tool_calls') and re.tool_calls:
-                logger.info(f"Tool name: {re.tool_calls[0]['name']}")
-                
-                if 'args' in re.tool_calls[0]:
-                    logger.info(f"Tool args: {re.tool_calls[0]['args']}")
-                    
-                    args = re.tool_calls[0]['args']
-                    if 'code' in args:
-                        logger.info(f"code: {args['code']}")
-                        if debug_mode == "Enable": 
-                            st.code(args['code'])
-                    elif re.tool_calls[0]['args']:
-                        if debug_mode == "Enable": 
-                            st.info(f"Tool name: {re.tool_calls[0]['name']}  \nTool args: {re.tool_calls[0]['args']}")
-            # else:
-            #     st.info(f"Tool name: {re.tool_calls[0]['name']}")
-
-        elif isinstance(re, ToolMessage):            
-            if re.name:
-                logger.info(f"Tool name: {re.name}")
-                
-                if re.content:                
-                    content = re.content
-                    if len(content) > 500:
-                        content = content[:500] + "..."
-                    logger.info(f"Tool result: {content}")
-                    
-                    if debug_mode == "Enable": 
-                        st.info(f"Tool name: {re.name}  \nTool result: {content}")                    
-                else:
-                    if debug_mode == "Enable": 
-                        st.info(f"Tool name: {re.name}")
-            try: 
-                # tavily
-                if isinstance(re.content, str) and "Title:" in re.content and "URL:" in re.content and "Content:" in re.content:
-                    logger.info("Tavily parsing...")                    
-                    items = re.content.split("\n\n")
-                    for i, item in enumerate(items):
-                        logger.info(f"item[{i}]: {item}")
-                        if "Title:" in item and "URL:" in item and "Content:" in item:
-                            try:
-                                # 정규식 대신 문자열 분할 방법 사용
-                                title_part = item.split("Title:")[1].split("URL:")[0].strip()
-                                url_part = item.split("URL:")[1].split("Content:")[0].strip()
-                                content_part = item.split("Content:")[1].strip()
-                                
-                                logger.info(f"title_part: {title_part}")
-                                logger.info(f"url_part: {url_part}")
-                                logger.info(f"content_part: {content_part}")
-                                
-                                references.append({
-                                    "url": url_part,
-                                    "title": title_part,
-                                    "content": content_part[:100] + "..." if len(content_part) > 100 else content_part
-                                })
-                            except Exception as e:
-                                logger.info(f"파싱 오류: {str(e)}")
-                                continue
-                
-                # check json format
-                if isinstance(re.content, str) and (re.content.strip().startswith('{') or re.content.strip().startswith('[')):
-                    tool_result = json.loads(re.content)
-                    logger.info(f"tool_result: {tool_result}")
-                else:
-                    tool_result = re.content
-                    logger.info(f"tool_result (not JSON): {tool_result}")
-
-                if "path" in tool_result:
-                    logger.info(f"Path: {tool_result['path']}")
-
-                    path = tool_result['path']
-                    if isinstance(path, list):
-                        for p in path:
-                            logger.info(f"image: {p}")
-                            if p.startswith('http') or p.startswith('https'):
-                                st.image(p)
-                                image_url.append(p)
-                            else:
-                                with open(p, 'rb') as f:
-                                    image_data = f.read()
-                                    st.image(image_data)
-                                    image_url.append(p)
-                    else:
-                        logger.info(f"image: {path}")
-                        try:
-                            if path.startswith('http') or path.startswith('https'):
-                                st.image(path)
-                                image_url.append(path)
-                            else:
-                                with open(path, 'rb') as f:
-                                    image_data = f.read()
-                                    st.image(image_data)
-                                    image_url.append(path)
-                        except Exception as e:
-                            logger.error(f"이미지 표시 오류: {str(e)}")
-                            st.error(f"이미지를 표시할 수 없습니다: {str(e)}")
-
-                # ArXiv
-                if "papers" in tool_result:
-                    logger.info(f"size of papers: {len(tool_result['papers'])}")
-
-                    papers = tool_result['papers']
-                    for paper in papers:
-                        url = paper['url']
-                        title = paper['title']
-                        content = paper['abstract'][:100]
-                        logger.info(f"url: {url}, title: {title}, content: {content}")
-
-                        references.append({
-                            "url": url,
-                            "title": title,
-                            "content": content
-                        })
-                                
-                if isinstance(tool_result, list):
-                    logger.info(f"size of tool_result: {len(tool_result)}")
-                    for i, item in enumerate(tool_result):
-                        logger.info(f'item[{i}]: {item}')
-                        
-                        # RAG
-                        if "reference" in item:
-                            logger.info(f"reference: {item['reference']}")
-
-                            infos = item['reference']
-                            url = infos['url']
-                            title = infos['title']
-                            source = infos['from']
-                            logger.info(f"url: {url}, title: {title}, source: {source}")
-
-                            references.append({
-                                "url": url,
-                                "title": title,
-                                "content": item['contents'][:100]
-                            })
-
-                        # Others               
-                        if isinstance(item, str):
-                            try:
-                                item = json.loads(item)
-
-                                # AWS Document
-                                if "rank_order" in item:
-                                    references.append({
-                                        "url": item['url'],
-                                        "title": item['title'],
-                                        "content": item['context'][:100]
-                                    })
-                            except json.JSONDecodeError:
-                                logger.info(f"JSON parsing error: {item}")
-                                continue
-
-            except:
-                logger.info(f"fail to parsing..")
-                pass
-    return image_url, references
-
-async def mcp_rag_agent_multiple(query, historyMode, st):
-    server_params = load_multiple_mcp_server_parameters()
+def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
+    # implementation 모듈을 함수 내부에서 임포트
+    import implementation
+    server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
     logger.info(f"server_params: {server_params}")
 
-    async with  MultiServerMCPClient(server_params) as client:
-        references = []
-        ref = ""
-        
-        # status 대신 progress bar 사용
-        progress_bar = st.progress(0)
-        progress_bar.progress(10)
-        
+    response = ""
+    with MultiServerMCPClient(server_params) as client:
         tools = client.get_tools()
-        logger.info(f"tools: {tools}")
+        # logger.info(f"tools: {tools}")
 
         toolList = []
         for tool in tools:
@@ -516,48 +295,21 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
             description = description.replace("\n", "")
             toolList.append(f"{name}: {description}")
 
-        logger.info(f"toolList: {toolList}")
+        # logger.info(f"toolList: {toolList}")
 
         if debug_mode == "Enable":
             tool_info(toolList, st)
 
-        progress_bar.progress(30)
-        
         # langgraph agent
-        response = manus.run(query)
+        response = implementation.run(query, toolList)
         logger.info(f"response: {response}")
 
-        progress_bar.progress(60)
-
-        result = response["messages"][-1].content
-        logger.info(f"result: {result}")
-
-        image_url, references = show_status_message(response["messages"], st)     
-        
-        if references:
-            ref = "\n\n### Reference\n"
-        for i, reference in enumerate(references):
-            ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
-
-        result += ref
-
-        progress_bar.progress(100)
-
-        if model_type == "nova":
-            result = extract_thinking_tag(result, st) # for nova
-
-        st.markdown(result)
+        st.markdown(response)
 
         st.session_state.messages.append({
             "role": "assistant", 
-            "content": result,
-            "images": image_url if image_url else []
+            "content": response,
+            "images": []
         })
 
-    return result
-
-def run_agent(query, historyMode, st):
-    result = asyncio.run(mcp_rag_agent_multiple(query, historyMode, st))
-    logger.info(f"result: {result}")
-    
-    return result
+    return response

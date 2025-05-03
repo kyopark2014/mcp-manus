@@ -10,10 +10,6 @@ logger = utils.CreateLogger("graph-implementation")
 
 def get_prompt_template(prompt_name: str) -> str:
     template = open(os.path.join(os.path.dirname(__file__), f"{prompt_name}.md")).read()
-    # Escape curly braces using backslash
-    template = template.replace("{", "{{").replace("}", "}}")
-    # Replace `<<VAR>>` with `{VAR}`
-    template = re.sub(r"<<([^>>]+)>>", r"{\1}", template)
-
     logger.info(f"template: {template}")
+
     return template
