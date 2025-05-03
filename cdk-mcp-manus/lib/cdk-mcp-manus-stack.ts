@@ -346,7 +346,8 @@ export class CdkMcpManusStack extends cdk.Stack {
         firecrawl_api_key: cdk.SecretValue.unsafePlainText(''),
       },
     });
-
+    
+/*
     const codeInterpreterSecret = new secretsmanager.Secret(this, `code-interpreter-secret-for-${projectName}`, {
       description: 'secret for code interpreter api key', // code interpreter
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -607,6 +608,7 @@ export class CdkMcpManusStack extends cdk.Stack {
       }),
     );      
     tavilyApiSecret.grantRead(roleLambdaRag) 
+    firecrawlApiSecret.grantRead(roleLambdaRag) 
 
     // bedrock
     roleLambdaRag.attachInlinePolicy( 
@@ -752,6 +754,6 @@ export class CdkMcpManusStack extends cdk.Stack {
     })
     listener.addAction(`RedirectHttpListener-for-${projectName}`, {
       action: defaultAction
-    });   
+    });    */
   }
 }
