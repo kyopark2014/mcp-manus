@@ -70,7 +70,7 @@ def ManusAgent(
         nodes_by_name["should_end"],
         [
             END,
-            "Operator",
+            "Planner",
         ],
     )
     return builder

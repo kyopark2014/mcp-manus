@@ -17,6 +17,7 @@ from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langgraph.constants import START, END
 from langchain_core.tools import BaseTool
+from langchain_core.messages import HumanMessage
 
 import logging
 import sys
@@ -133,12 +134,12 @@ def Planner(state: State) -> dict:
     logger.info(f"###### Planner ######")
     #logger.info(f"state: {state}")
 
-    logger.info(f"team_members: {team_members}")    
+    # logger.info(f"team_members: {team_members}")    
 
     prompt_name = "planner"
 
     system = get_prompt_template(prompt_name)
-    logger.info(f"system_prompt of planner: {system}")
+    #logger.info(f"system_prompt of planner: {system}")
 
     human = "{input}" 
 
@@ -156,13 +157,35 @@ def Planner(state: State) -> dict:
         "team_members": team_members,
         "input": state
     })
-    show_info(f"Planner: {result.content}")
+    # show_info(f"Planner: {result.content}")
 
-    return {
-        "full_plan": result.content,
-        "deep_thinking_mode": state.get("deep_thinking_mode", False),
-        "search_before_planning": state.get("search_before_planning", False)
-    }
+    output = result.content
+    final_response = ""
+    if output.find("<status>") != -1:
+        status = output.split("<status>")[1].split("</status>")[0]
+        logger.info(f"status: {status}")
+
+        if status == "Completed":
+            final_response = state['history'][-1]           
+            next = END
+        else:
+            next = "Operator"
+    else:
+        next = "Operator"
+    logger.info(f"next of planner: {next}")
+
+    if next == END:
+        logger.info(f"result.content: {result.content}")
+        return {
+            "final_response": final_response,
+            "full_plan": result.content            
+        }
+    else:        
+        return {
+            "full_plan": result.content,
+            "deep_thinking_mode": state.get("deep_thinking_mode", False),
+            "search_before_planning": state.get("search_before_planning", False)
+        }
 
 async def Operator(state: State) -> dict:
     logger.info(f"###### Operator ######")
@@ -171,7 +194,7 @@ async def Operator(state: State) -> dict:
     prompt_name = "operator"
 
     system = get_prompt_template(prompt_name)
-    logger.info(f"system_prompt: {system}")
+    # logger.info(f"system_prompt: {system}")
 
     human = "{input}" 
 
@@ -205,21 +228,26 @@ async def Operator(state: State) -> dict:
     for tool in tool_list:
         if tool.name == next:
             tool_info.append(tool)
+            logger.info(f"tool_info: {tool_info}")
     
-    from langgraph.prebuilt import create_react_agent
-    from langchain_core.messages import HumanMessage
-    agent = create_react_agent(tools=tool_info, model=llm)
+    # from langgraph.prebuilt import create_react_agent
+    
+    # agent = create_react_agent(tools=tool_info, model=llm)
+    agent, config = chat.create_agent(tool_info)
 
     # HumanMessage 형식으로 변환
     messages = [HumanMessage(content=json.dumps(task))]
-    response = await agent.ainvoke({"messages": messages})
+    response = await agent.ainvoke({"messages": messages}, config)
     logger.info(f"response: {response}")
 
     result = response["messages"][-1].content
     logger.info(f"result: {result}")
+
+    history = state["history"] if "history" in state else []
+    history.append(result)
     
     return {
-        "final_response": result
+        "history": history
     }
 
 def to_operator(state: State) -> str:
@@ -227,13 +255,14 @@ def to_operator(state: State) -> str:
     # logger.info(f"state: {state}")
 
     if "final_response" in state and state["final_response"] != "":
+        logger.info(f"final_response: {state['final_response']}")
         return END
     else:
         return "Operator"
 
 def should_end(state: State) -> str:
     logger.info(f"###### should_end ######")
-    # logger.info(f"state: {state}")
+    logger.info(f"state: {state}")
 
     if "final_response" in state and state["final_response"] != "":
         return END

@@ -324,19 +324,6 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from typing import Literal
 from langgraph.graph import START, END, StateGraph
 
-def isKorean(text):
-    # check korean
-    pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+')
-    word_kor = pattern_hangul.search(str(text))
-    # print('word_kor: ', word_kor)
-
-    if word_kor and word_kor != 'None':
-        # logger.info(f"Korean: {word_kor}")
-        return True
-    else:
-        # logger.info(f"Not Korean:: {word_kor}")
-        return False
-
 def create_agent(tools):
     tool_node = ToolNode(tools)
 
@@ -353,18 +340,12 @@ def create_agent(tools):
         last_message = state['messages'][-1]
         logger.info(f"last message: {last_message}")
 
-        if isKorean(state["messages"][0].content)==True:
-            system = (
-                "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
-                "상황에 맞는 구체적인 세부 정보를 충분히 제공합니다."
-                "모르는 질문을 받으면 솔직히 모른다고 말합니다."
-                "한국어로 답변하세요."
-            )
-        else: 
-            system = (            
-                "You are a conversational AI designed to answer in a friendly way to a question."
-                "If you don't know the answer, just say that you don't know, don't try to make up an answer."
-            )
+        system = (
+            "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
+            "상황에 맞는 구체적인 세부 정보를 충분히 제공합니다."
+            "모르는 질문을 받으면 솔직히 모른다고 말합니다."
+            "한국어로 답변하세요."
+        )
 
         try:
             prompt = ChatPromptTemplate.from_messages(

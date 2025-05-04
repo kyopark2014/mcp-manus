@@ -26,4 +26,4 @@ edges:
     paths: [Operator, __end__]
   - from: Operator
     condition: should_end
-    paths: [__end__, Operator]
+    paths: [__end__, Planner]
