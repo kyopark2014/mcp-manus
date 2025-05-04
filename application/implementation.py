@@ -52,7 +52,10 @@ class State(TypedDict):
     full_plan: str
     deep_thinking_mode: bool
     search_before_planning: bool
-    full_response: str
+    final_response: str
+
+    # Messages
+    history: list[dict]
 
 def Coordinator(state: State) -> dict:
     """Coordinator node that communicate with customers."""
@@ -83,22 +86,22 @@ def Coordinator(state: State) -> dict:
     })
     logger.info(f"result of Coordinator: {result}")
 
-    full_response = ""
+    final_response = ""
     if result.content != 'to_planner':
         logger.info(f"next: END")
-        full_response = result.content
+        final_response = result.content
     
     return {
-        "full_response": full_response
+        "final_response": final_response
     }
 
 def to_planner(state: State) -> str:
     logger.info(f"###### to_planner ######")
     # logger.info(f"state: {state}")
 
-    full_response = state["full_response"]
+    final_response = state["final_response"]
 
-    if full_response == "":
+    if final_response == "":
         next = "Planner"
     else:
         next = END
@@ -137,7 +140,7 @@ def Planner(state: State) -> dict:
     result = prompt.invoke({
         "question": question
     })
-    show_info(f"{result.content}")
+    show_info(f"Planner: {result.content}")
 
     return {
         "full_plan": result.content,
@@ -151,26 +154,31 @@ def Operator(state: State) -> dict:
 
     question = state["question"]
 
-    prompt_name = "researcher"
+    prompt_name = "operator"
 
-    system_prompt = get_prompt_template(prompt_name)
-    logger.info(f"system_prompt: {system_prompt}")
+    system = get_prompt_template(prompt_name)
+    logger.info(f"system_prompt: {system}")
 
-    import chat
-    llm = chat.get_chat(extended_thinking="Disable")
-    researcher_prompt = ChatPromptTemplate.from_messages(
+    human = "<plan>{input}</plan>" 
+
+    prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", system_prompt),
-            ("human", "Question: {question}"),
+            ("system", system),
+            ("human", human),
         ]
     )
 
-    prompt = researcher_prompt | llm 
-    result = prompt.invoke({
-        "question": question
+    import chat
+    llm = chat.get_chat(extended_thinking="Disable")
+    chain = prompt | llm 
+    result = chain.invoke({
+        "input": state
     })
-    show_info(f"{result.content}")
+    logger.info(f"result: {result}")
+    show_info(f"Operator: {result.content}")
 
+    # history = state.get("history", [])
+    # history.append({"agent":"operator", "message": final_response})
     
     return {
         # Add your state update logic here
@@ -180,10 +188,10 @@ def to_operator(state: State) -> str:
     logger.info(f"###### to_operator ######")
     # logger.info(f"state: {state}")
 
-    if state["final_response"] == "":
-        return "Operator"
-    else:
+    if "final_response" in state:
         return END
+    else:
+        return "Operator"
 
 def should_end(state: State) -> str:
     logger.info(f"###### should_end ######")
@@ -223,4 +231,4 @@ def run(question: str, toolList: list):
     
     logger.info(f"value: {value}")
 
-    return value["full_response"]
+    return value["final_response"]
