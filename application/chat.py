@@ -282,7 +282,7 @@ def show_implementation_info(message: str, st):
 async def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
     # implementation 모듈을 함수 내부에서 임포트
     import implementation
-    implementation.show_info = lambda msg: show_implementation_info(msg, st)
+    implementation.show_info.callback = lambda msg: show_implementation_info(msg, st)
     
     server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
     logger.info(f"server_params: {server_params}")
@@ -292,30 +292,137 @@ async def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
         tools = client.get_tools()
         # logger.info(f"tools: {tools}")
 
-        toolList = []
-        for tool in tools:
-            name = tool.name
-            description = tool.description
-            # args_schema = tool.args_schema
-            # toolList.append(f"name: {name}, description: {description}, args_schema: {args_schema}")
-            description = description.replace("\n", "")
-            toolList.append(f"{name}: {description}")
-
-        # logger.info(f"toolList: {toolList}")
-
         if debug_mode == "Enable":
             get_tool_info(tools, st)
 
         # langgraph agent
-        response = implementation.run(query, toolList)
+        implementation.update_team_members(tools)
+                            
+        response = await implementation.run(query)
         logger.info(f"response: {response}")
 
-        # st.markdown(response)
-
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": response,
-            "images": []
-        })
+        # 메시지 큐 처리
+        while not implementation.message_queue.empty():
+            message = implementation.message_queue.get()
+            st.info(message)
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": message,
+                "images": []
+            })
 
     return response
+
+####################### Agent #######################
+# Agent 
+#####################################################
+import re
+from langgraph.prebuilt import ToolNode
+from typing_extensions import Annotated, TypedDict
+from langgraph.graph.message import add_messages
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from typing import Literal
+from langgraph.graph import START, END, StateGraph
+
+def isKorean(text):
+    # check korean
+    pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+')
+    word_kor = pattern_hangul.search(str(text))
+    # print('word_kor: ', word_kor)
+
+    if word_kor and word_kor != 'None':
+        # logger.info(f"Korean: {word_kor}")
+        return True
+    else:
+        # logger.info(f"Not Korean:: {word_kor}")
+        return False
+
+def create_agent(tools):
+    tool_node = ToolNode(tools)
+
+    chatModel = get_chat(extended_thinking="Disable")
+    model = chatModel.bind_tools(tools)
+
+    class State(TypedDict):
+        messages: Annotated[list, add_messages]
+
+    def call_model(state: State, config):
+        logger.info(f"###### call_model ######")
+        # logger.info(f"state: {state['messages']}")
+
+        last_message = state['messages'][-1]
+        logger.info(f"last message: {last_message}")
+
+        if isKorean(state["messages"][0].content)==True:
+            system = (
+                "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
+                "상황에 맞는 구체적인 세부 정보를 충분히 제공합니다."
+                "모르는 질문을 받으면 솔직히 모른다고 말합니다."
+                "한국어로 답변하세요."
+            )
+        else: 
+            system = (            
+                "You are a conversational AI designed to answer in a friendly way to a question."
+                "If you don't know the answer, just say that you don't know, don't try to make up an answer."
+            )
+
+        try:
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", system),
+                    MessagesPlaceholder(variable_name="messages"),
+                ]
+            )
+            chain = prompt | model
+                
+            response = chain.invoke(state["messages"])
+            # logger.info(f"call_model response: {response}")
+            logger.info(f"call_model: {response.content}")
+
+        except Exception:
+            response = AIMessage(content="답변을 찾지 못하였습니다.")
+
+            err_msg = traceback.format_exc()
+            logger.info(f"error message: {err_msg}")
+            # raise Exception ("Not able to request to LLM")
+
+        return {"messages": [response]}
+
+    def should_continue(state: State) -> Literal["continue", "end"]:
+        logger.info(f"###### should_continue ######")
+
+        messages = state["messages"]    
+        last_message = messages[-1]
+        
+        if isinstance(last_message, AIMessage) and last_message.tool_calls:
+            tool_name = last_message.tool_calls[-1]['name']
+            logger.info(f"--- CONTINUE: {tool_name} ---")
+            return "continue"
+        else:
+            logger.info(f"--- END ---")
+            return "end"
+
+    def buildChatAgent():
+        workflow = StateGraph(State)
+
+        workflow.add_node("agent", call_model)
+        workflow.add_node("action", tool_node)
+        workflow.add_edge(START, "agent")
+        workflow.add_conditional_edges(
+            "agent",
+            should_continue,
+            {
+                "continue": "action",
+                "end": END,
+            },
+        )
+        workflow.add_edge("action", "agent")
+
+        return workflow.compile() 
+
+    app = buildChatAgent()
+    config = {
+        "recursion_limit": 50
+    }
+
+    return app, config

@@ -16,9 +16,11 @@ from typing import Literal
 from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langgraph.constants import START, END
+from langchain_core.tools import BaseTool
 
 import logging
 import sys
+from queue import Queue
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -45,9 +47,23 @@ def load_config():
     return config
 config = load_config()
 
+team_members: list[str]
+tool_list: list[BaseTool]
+
+def update_team_members(tools: list[BaseTool]):
+    global team_members, tool_list
+    tool_list = tools
+
+    team_members = []
+    for tool in tools:
+        name = tool.name
+        description = tool.description
+        description = description.replace("\n", "")
+        team_members.append(f"{name}: {description}")
+        # logger.info(f"team_members: {team_members}")
+
 class State(TypedDict):
-    question : str
-    team_members : list[str]
+    question : str    
     # Runtime Variables
     full_plan: str
     deep_thinking_mode: bool
@@ -99,46 +115,46 @@ def to_planner(state: State) -> str:
     logger.info(f"###### to_planner ######")
     # logger.info(f"state: {state}")
 
-    final_response = state["final_response"]
-
-    if final_response == "":
-        next = "Planner"
-    else:
+    if "final_response" in state and state["final_response"] != "":
         next = END
+    else:
+        next ="Planner"
 
     return next
 
+message_queue = Queue()
+
 def show_info(message: str):
+    logger.info(message)
     if hasattr(show_info, 'callback'):
-        show_info.callback(message)
-    else:
-        logger.info(message)
+        message_queue.put(message)
 
 def Planner(state: State) -> dict:
     logger.info(f"###### Planner ######")
     #logger.info(f"state: {state}")
 
-    question = state["question"]
-    team_members = state["team_members"]
-    logger.info(f"team_members: {team_members}")
+    logger.info(f"team_members: {team_members}")    
 
     prompt_name = "planner"
 
-    system_prompt = get_prompt_template(prompt_name)
-    logger.info(f"system_prompt: {system_prompt}")
+    system = get_prompt_template(prompt_name)
+    logger.info(f"system_prompt of planner: {system}")
+
+    human = "{input}" 
 
     import chat
     llm = chat.get_chat(extended_thinking="Disable")
     planner_prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", system_prompt),
-            ("human", "Question: {question}"),
+            ("system", system),
+            ("human", human),
         ]
     )
 
     prompt = planner_prompt | llm 
     result = prompt.invoke({
-        "question": question
+        "team_members": team_members,
+        "input": state
     })
     show_info(f"Planner: {result.content}")
 
@@ -148,18 +164,16 @@ def Planner(state: State) -> dict:
         "search_before_planning": state.get("search_before_planning", False)
     }
 
-def Operator(state: State) -> dict:
+async def Operator(state: State) -> dict:
     logger.info(f"###### Operator ######")
     # logger.info(f"state: {state}")
-
-    question = state["question"]
 
     prompt_name = "operator"
 
     system = get_prompt_template(prompt_name)
     logger.info(f"system_prompt: {system}")
 
-    human = "<plan>{input}</plan>" 
+    human = "{input}" 
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -172,23 +186,43 @@ def Operator(state: State) -> dict:
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm 
     result = chain.invoke({
-        "input": state
+        "input": state,
+        "team_members": team_members
     })
     logger.info(f"result: {result}")
     show_info(f"Operator: {result.content}")
 
-    # history = state.get("history", [])
-    # history.append({"agent":"operator", "message": final_response})
+    import json
+    result_dict = json.loads(result.content)
+
+    next = result_dict["next"]
+    print(f"next: {next}")
+
+    task = result_dict["task"]
+    print(f"task: {task}")
+
+    tool_info = []
+    for tool in tool_list:
+        if tool.name == next:
+            tool_info.append(tool)
+    
+    from langgraph.prebuilt import create_react_agent
+    agent = create_react_agent(tools=tool_info, model=llm)
+
+    response = await agent.ainvoke({"messages": task})
+
+    result = response["messages"][-1].content
+    logger.info(f"result: {result}")
     
     return {
-        # Add your state update logic here
+        "final_response": result
     }
 
 def to_operator(state: State) -> str:
     logger.info(f"###### to_operator ######")
     # logger.info(f"state: {state}")
 
-    if "final_response" in state:
+    if "final_response" in state and state["final_response"] != "":
         return END
     else:
         return "Operator"
@@ -197,10 +231,10 @@ def should_end(state: State) -> str:
     logger.info(f"###### should_end ######")
     # logger.info(f"state: {state}")
 
-    if state["next"] == END:
+    if "final_response" in state and state["final_response"] != "":
         return END
     else:
-        return "Operator"
+        return "Planner"
 
 agent = ManusAgent(
     state_schema=State,
@@ -216,16 +250,16 @@ agent = ManusAgent(
 
 manus_agent = agent.compile()
 
-def run(question: str, toolList: list):
+async def run(question: str):
     inputs = {
-        "question": question,
-        "team_members": toolList
+        "question": question
     }
     config = {
         "recursion_limit": 50
     }
 
-    for output in manus_agent.stream(inputs, config):   
+    value = None
+    async for output in manus_agent.astream(inputs, config):
         for key, value in output.items():
             logger.info(f"Finished running: {key}")
     

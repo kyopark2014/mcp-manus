@@ -20,8 +20,7 @@ Your planning should follow this agent loop for task completion:
 
 <agent_capabilities>
 This is CRITICAL.
-- Coder: Performs coding, calculation, and data processing tasks. All code work must be integrated into one large task.
-- Reporter: Called only once in the final stage to create a comprehensive report.
+{team_members}
 Note: Ensure that each step using Researcher, Coder and Browser completes a full task, as session continuity cannot be preserved.
 </agent_capabilities>
 
