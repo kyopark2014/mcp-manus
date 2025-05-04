@@ -207,9 +207,13 @@ async def Operator(state: State) -> dict:
             tool_info.append(tool)
     
     from langgraph.prebuilt import create_react_agent
+    from langchain_core.messages import HumanMessage
     agent = create_react_agent(tools=tool_info, model=llm)
 
-    response = await agent.ainvoke({"messages": task})
+    # HumanMessage 형식으로 변환
+    messages = [HumanMessage(content=json.dumps(task))]
+    response = await agent.ainvoke({"messages": messages})
+    logger.info(f"response: {response}")
 
     result = response["messages"][-1].content
     logger.info(f"result: {result}")
