@@ -17,7 +17,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stderr)
     ]
 )
-logger = logging.getLogger("mcp-cost")
+logger = logging.getLogger("mcp-coder")
 
 repl = PythonAstREPLTool()
 

@@ -17,14 +17,38 @@ from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langgraph.constants import START, END
 
-config = utils.load_config()
-logger = utils.CreateLogger("graph-implementation")
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,  # Default to INFO level
+    format='%(filename)s:%(lineno)d | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
+logger = logging.getLogger("graph-implementation")
+
+import json
+def load_config():
+    config = None
+    try:
+        with open("/home/config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
+            print(f"config: {config}")
+
+    except Exception:
+        print("use local configuration")
+        with open("application/config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
+    
+    return config
+config = load_config()
 
 class State(TypedDict):
     question : str
     team_members : list[str]
     # Runtime Variables
-    next: str
     full_plan: str
     deep_thinking_mode: bool
     search_before_planning: bool
@@ -55,27 +79,43 @@ def Coordinator(state: State) -> dict:
 
     prompt = coordinator_prompt | llm 
     result = prompt.invoke({
-        "question": question,
-        "CURRENT_TIME": datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"),
+        "question": question
     })
     logger.info(f"result of Coordinator: {result}")
 
-    if result.content == 'to_planner()':
-        logger.info(f"next: Planner")
-        return {
-            "next": "Planner"
-        }
-    else:
+    full_response = ""
+    if result.content != 'to_planner':
         logger.info(f"next: END")
-        return {
-            "next": END,
-            "full_response": result.content
-        }
+        full_response = result.content
+    
+    return {
+        "full_response": full_response
+    }
+
+def to_planner(state: State) -> str:
+    logger.info(f"###### to_planner ######")
+    # logger.info(f"state: {state}")
+
+    full_response = state["full_response"]
+
+    if full_response == "":
+        next = "Planner"
+    else:
+        next = END
+
+    return next
+
+def show_info(message: str):
+    if hasattr(show_info, 'callback'):
+        show_info.callback(message)
+    else:
+        logger.info(message)
 
 def Planner(state: State) -> dict:
     logger.info(f"###### Planner ######")
-    logger.info(f"state: {state}")
+    #logger.info(f"state: {state}")
 
+    question = state["question"]
     team_members = state["team_members"]
     logger.info(f"team_members: {team_members}")
 
@@ -88,56 +128,69 @@ def Planner(state: State) -> dict:
     llm = chat.get_chat(extended_thinking="Disable")
     planner_prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", system_prompt)
+            ("system", system_prompt),
+            ("human", "Question: {question}"),
         ]
     )
 
     prompt = planner_prompt | llm 
     result = prompt.invoke({
-        "CURRENT_TIME": datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"),
-        "team_members": team_members
+        "question": question
     })
-    logger.info(f"result: {result}")
+    show_info(f"{result.content}")
 
     return {
-        "next": "Operator",
-        "full_plan": state.get("full_plan", ""),
+        "full_plan": result.content,
         "deep_thinking_mode": state.get("deep_thinking_mode", False),
         "search_before_planning": state.get("search_before_planning", False)
     }
 
 def Operator(state: State) -> dict:
     logger.info(f"###### Operator ######")
-    logger.info(f"state: {state}")
+    # logger.info(f"state: {state}")
+
+    question = state["question"]
+
+    prompt_name = "researcher"
+
+    system_prompt = get_prompt_template(prompt_name)
+    logger.info(f"system_prompt: {system_prompt}")
+
+    import chat
+    llm = chat.get_chat(extended_thinking="Disable")
+    researcher_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            ("human", "Question: {question}"),
+        ]
+    )
+
+    prompt = researcher_prompt | llm 
+    result = prompt.invoke({
+        "question": question
+    })
+    show_info(f"{result.content}")
+
     
     return {
         # Add your state update logic here
     }
 
-def to_planner(state: State) -> str:
-    logger.info(f"###### to_planner ######")
-    logger.info(f"state: {state}")
+def to_operator(state: State) -> str:
+    logger.info(f"###### to_operator ######")
+    # logger.info(f"state: {state}")
 
-    if state["next"] == "Planner":
-        return "Planner"
+    if state["final_response"] == "":
+        return "Operator"
     else:
         return END
 
-def to_operator(state: State) -> str:
-    logger.info(f"###### to_operator ######")
-    logger.info(f"state: {state}")
-
-    if state["next"] == "Operator":
-        return "Operator"
-    else:
-        return "END"
-
 def should_end(state: State) -> str:
     logger.info(f"###### should_end ######")
-    logger.info(f"state: {state}")
+    # logger.info(f"state: {state}")
 
-    if state["next"] == "END":
-        return "END"
+    if state["next"] == END:
+        return END
     else:
         return "Operator"
 

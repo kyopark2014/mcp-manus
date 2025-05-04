@@ -16,7 +16,7 @@ Your primary responsibilities are:
 - For all other inputs:
   - Move to planner with the following format:
   ```python
-  to_planner()
+  to_planner
   ```
 
 # Notes

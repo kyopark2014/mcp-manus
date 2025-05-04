@@ -12,10 +12,19 @@ from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
-from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
-logger = utils.CreateLogger("mcp-client")
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,  # Default to INFO level
+    format='%(filename)s:%(lineno)d | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
+logger = logging.getLogger("mcp-client")
 
 def load_multiple_mcp_server_parameters(mcp_json):
     logger.info(f"mcp_json: {mcp_json}")
@@ -56,24 +65,7 @@ def load_multiple_mcp_server_parameters(mcp_json):
 
     return server_info
 
-def tool_info(tools, st):
-    st.info("Tool 정보를 가져옵니다.")
-    if isinstance(tools, list):
-        if tools and isinstance(tools[0], str):
-            # 문자열 리스트인 경우
-            st.info(f"Tools: {tools}")
-        else:
-            # Tool 객체 리스트인 경우
-            tool_info = ""
-            tool_list = []
-            for tool in tools:
-                tool_info += f"name: {tool.name}\n"    
-                if hasattr(tool, 'description'):
-                    tool_info += f"description: {tool.description}\n"
-                tool_list.append(tool.name)
-            st.info(f"Tools: {tool_list}")
-    else:
-        st.error("잘못된 도구 정보 형식입니다.")
+
 
 def show_status_message(response, st, debug_mode):
     image_url = []

@@ -9,7 +9,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stderr)
     ]
 )
-logger = logging.getLogger("mcp-cost")
+logger = logging.getLogger("mcp-config")
 
 mcp_user_config = {}    
 def load_config(mcp_type):

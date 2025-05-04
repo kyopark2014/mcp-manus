@@ -15,7 +15,17 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-logger = utils.CreateLogger("chat")
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,  # Default to INFO level
+    format='%(filename)s:%(lineno)d | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
+logger = logging.getLogger("chat")
 
 model_name = "Claude 3.5 Sonnet"
 model_type = "claude"
@@ -251,38 +261,34 @@ def general_conversation(query):
 def run_agent(query, historyMode, st):
     # mcp_client 모듈을 함수 내부에서 임포트
     import mcp_client
-    result = mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode)
+    result = asyncio.run(mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode))
     logger.info(f"result: {result}")
     
     return result
 
-def tool_info(tools, st):
-    st.info("Tool 정보를 가져옵니다.")
-    if isinstance(tools, list):
-        if tools and isinstance(tools[0], str):
-            # 문자열 리스트인 경우
-            st.info(f"Tools: {tools}")
-        else:
-            # Tool 객체 리스트인 경우
-            tool_info = ""
-            tool_list = []
-            for tool in tools:
-                tool_info += f"name: {tool.name}\n"    
-                if hasattr(tool, 'description'):
-                    tool_info += f"description: {tool.description}\n"
-                tool_list.append(tool.name)
-            st.info(f"Tools: {tool_list}")
-    else:
-        st.error("잘못된 도구 정보 형식입니다.")
+def get_tool_info(tools, st):    
+    toolList = []
+    for tool in tools:
+        name = tool.name
+        toolList.append(name)
+    
+    toolmsg = ', '.join(toolList)
+    st.info(f"Tools: {toolmsg}")
 
-def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
+def show_implementation_info(message: str, st):
+    st.info(message)
+    logger.info(f"Implementation Info: {message}")
+
+async def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
     # implementation 모듈을 함수 내부에서 임포트
     import implementation
+    implementation.show_info = lambda msg: show_implementation_info(msg, st)
+    
     server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
     logger.info(f"server_params: {server_params}")
 
     response = ""
-    with MultiServerMCPClient(server_params) as client:
+    async with MultiServerMCPClient(server_params) as client:
         tools = client.get_tools()
         # logger.info(f"tools: {tools}")
 
@@ -298,13 +304,13 @@ def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
         # logger.info(f"toolList: {toolList}")
 
         if debug_mode == "Enable":
-            tool_info(toolList, st)
+            get_tool_info(tools, st)
 
         # langgraph agent
         response = implementation.run(query, toolList)
         logger.info(f"response: {response}")
 
-        st.markdown(response)
+        # st.markdown(response)
 
         st.session_state.messages.append({
             "role": "assistant", 
