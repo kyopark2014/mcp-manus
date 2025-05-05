@@ -253,7 +253,7 @@ async def Operator(state: State) -> dict:
     result = response["messages"][-1].content
     logger.info(f"result: {result}")
 
-    status = "Task: " + task + "\n\n" + "Result: " + result
+    status = "<task>\nTask: " + task + "\n\n" + "Result: " + result + "\n</task>"
     write_result(status)
  
     history = state["history"] if "history" in state else []

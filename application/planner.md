@@ -113,6 +113,5 @@ Directly output the raw Markdown format of Plan as below
 - Always use Reporter to present your final report. Reporter can only be used once as the last step.
 - Always use the same language as the user.
 - task가 완료되지 않으면, <status>Procedding</status>를 붙이고, 모든 task가 완료되면 <status>Completed</status>를 붙입니다.
-- steps를 수정할때에 기존 완료된 step은 유지합니다.
 
 </notes>

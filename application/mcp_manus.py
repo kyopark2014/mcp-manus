@@ -23,10 +23,10 @@ logger = logging.getLogger("manus")
 
 repl = PythonAstREPLTool()
 
-def reporter(state):
+def reporter(user_request: str):
     """
     Write final report.
-    code: the Python code was written in English
+    user_request: the user's request
     """
     prompt_name = "reporter"
 
@@ -38,7 +38,7 @@ def reporter(state):
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system),
-            ("human", human),
+            ("human", human)
         ]
     )
 
@@ -46,9 +46,10 @@ def reporter(state):
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm 
     result = chain.invoke({
-        "input": state,
-        "team_members": team_members
+        "user_request": user_request,
+        "input": "Question에 맞는 적절한 답변을 리포트로 작성해주세요."
     })
     logger.info(f"result: {result}")
+
     return result.content
 

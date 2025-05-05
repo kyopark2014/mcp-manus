@@ -55,9 +55,9 @@ with st.sidebar:
         st.subheader("⚙️ MCP Config")
 
         # Change radio to checkbox
-        mcp_options = ["default", "code interpreter", "aws document", "aws cost", "aws cli", "aws cloudwatch", "aws storage", "image generation", "aws diagram","knowledge base", "tavily", "ArXiv", "wikipedia", "filesystem", "terminal", "puppeteer", "playwright", "firecrawl", "obsidian", "airbnb", "사용자 설정"]
+        mcp_options = ["default", "manus", "code interpreter", "aws document", "aws cost", "aws cli", "aws cloudwatch", "aws storage", "image generation", "aws diagram","knowledge base", "tavily", "ArXiv", "wikipedia", "filesystem", "terminal", "puppeteer", "playwright", "firecrawl", "obsidian", "airbnb", "사용자 설정"]
         mcp_selections = {}
-        default_selections = ["tavily", "playwright", "code interpreter"]
+        default_selections = ["manus", "tavily", "code interpreter"]
 
         with st.expander("MCP 옵션 선택", expanded=True):
             for option in mcp_options:
@@ -177,6 +177,9 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             chat.save_chat_history(prompt, response)
 
         elif mode == 'MANUS':
+            import implementation
+            implementation.write_result("Question: " + prompt)
+
             with st.status("thinking...", expanded=True, state="running") as status:
                 # response = manus.run(prompt)
                 response = chat.run_agent(prompt, "Disable", st)

@@ -1,6 +1,6 @@
 import logging
 import sys
-import mcp_rag as rag
+import mcp_manus as manus
 
 from typing import Dict, Optional, Any
 from mcp.server.fastmcp import FastMCP 
@@ -28,18 +28,16 @@ except Exception as e:
         logger.info(f"{err_msg}")
 
 ######################################
-# RAG
+# reporter
 ######################################
 @mcp.tool()
-def rag_search(keyword: str) -> str:
+def reporter(user_request: str):
     """
-    Search the knowledge base with the given keyword.
-    keyword: the keyword to search
-    return: the result of search
+    Write final report.
+    user_request: the user's request
     """
-    logger.info(f"search --> keyword: {keyword}")
-
-    return rag.retrieve_knowledge_base(keyword)
+    
+    return manus.reporter(user_request)
 
 if __name__ =="__main__":
     print(f"###### main ######")

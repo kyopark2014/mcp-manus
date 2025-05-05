@@ -177,7 +177,19 @@ def load_config(mcp_type):
                 }
             }
         }    
-    
+
+    elif mcp_type == "manus":
+        return {
+            "mcpServers": {
+                "manus": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_manus.py"
+                    ]
+                }
+            }
+        }
+        
     elif mcp_type == "code_interpreter":
         return {
             "mcpServers": {
