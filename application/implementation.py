@@ -155,13 +155,12 @@ def Planner(state: State) -> dict:
         "team_members": team_members,
         "input": state
     })
-    # show_info(f"Planner: {result.content}")
+    show_info(f"Planner: {result.content}")
 
     output = result.content
     final_response = ""
-    next = "Operator"  # 기본값 설정
+    next = "Operator"  
 
-    # 상태 태그 파싱
     if output.find("<status>") != -1:
         status = output.split("<status>")[1].split("</status>")[0]
         logger.info(f"status: {status}")
@@ -190,6 +189,13 @@ def Planner(state: State) -> dict:
             "search_before_planning": state.get("search_before_planning", False),
             "history": state.get("history", [])
         }
+
+def write_result(result: str):    
+    file_path = "./artifacts/all_results.txt"
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    with open(file_path, "a", encoding="utf-8") as f:
+        f.write(f"{result}\n\n\n")
 
 async def Operator(state: State) -> dict:
     logger.info(f"###### Operator ######")
@@ -247,6 +253,9 @@ async def Operator(state: State) -> dict:
     result = response["messages"][-1].content
     logger.info(f"result: {result}")
 
+    status = "Task: " + task + "\n\n" + "Result: " + result
+    write_result(status)
+ 
     history = state["history"] if "history" in state else []
     history.append(result)
     

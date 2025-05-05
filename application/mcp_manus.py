@@ -28,7 +28,7 @@ def reporter(state):
     Write final report.
     code: the Python code was written in English
     """
-    prompt_name = "operator"
+    prompt_name = "reporter"
 
     system = get_prompt_template(prompt_name)
     # logger.info(f"system_prompt: {system}")

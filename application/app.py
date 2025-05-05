@@ -3,6 +3,7 @@ import chat
 import utils
 import json
 import mcp_config 
+import os
 
 import logging
 import sys
@@ -146,6 +147,12 @@ if clear_button or "messages" not in st.session_state:
             
 # Always show the chat input
 if prompt := st.chat_input("메시지를 입력하세요."):
+    # Delete all_results.txt if exists
+    results_file = "./artifacts/all_results.txt"
+    if os.path.exists(results_file):
+        os.remove(results_file)
+        logger.info(f"Deleted existing {results_file}")
+
     with st.chat_message("user"):  # display user message in chat message container
         st.markdown(prompt)
 
