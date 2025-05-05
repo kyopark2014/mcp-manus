@@ -132,14 +132,12 @@ def show_info(message: str):
 
 def Planner(state: State) -> dict:
     logger.info(f"###### Planner ######")
-    #logger.info(f"state: {state}")
-
-    # logger.info(f"team_members: {team_members}")    
+    # logger.info(f"state: {state}")
 
     prompt_name = "planner"
 
     system = get_prompt_template(prompt_name)
-    #logger.info(f"system_prompt of planner: {system}")
+    # logger.info(f"system_prompt of planner: {system}")
 
     human = "{input}" 
 
@@ -161,17 +159,22 @@ def Planner(state: State) -> dict:
 
     output = result.content
     final_response = ""
+    next = "Operator"  # 기본값 설정
+
+    # 상태 태그 파싱
     if output.find("<status>") != -1:
         status = output.split("<status>")[1].split("</status>")[0]
         logger.info(f"status: {status}")
 
         if status == "Completed":
-            final_response = state['history'][-1]           
+            if "history" in state and len(state["history"]) > 0:
+                final_response = state["history"][-1]
             next = END
         else:
             next = "Operator"
     else:
         next = "Operator"
+
     logger.info(f"next of planner: {next}")
 
     if next == END:
@@ -184,7 +187,8 @@ def Planner(state: State) -> dict:
         return {
             "full_plan": result.content,
             "deep_thinking_mode": state.get("deep_thinking_mode", False),
-            "search_before_planning": state.get("search_before_planning", False)
+            "search_before_planning": state.get("search_before_planning", False),
+            "history": state.get("history", [])
         }
 
 async def Operator(state: State) -> dict:

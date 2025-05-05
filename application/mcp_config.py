@@ -214,7 +214,17 @@ def load_config(mcp_type):
                 }
             }
         }
-    
+    elif mcp_type == "wikipedia":
+        return {
+            "mcpServers": {
+                "wikipedia": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_wikipedia.py"
+                    ]
+                }
+            }
+        }    
     elif mcp_type == "terminal":
         return {
             "mcpServers": {
@@ -226,8 +236,7 @@ def load_config(mcp_type):
                     ]
                 }
             }
-        }
-    
+        }    
     elif mcp_type == "filesystem":
         return {
             "mcpServers": {
