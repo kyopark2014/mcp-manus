@@ -211,7 +211,7 @@ def Reporter(state: State) -> dict:
     }
 ```
 
-### MCP의 활용
+## MCP의 활용
 
 여기에서는 [MCP-github](https://github.com/kyopark2014/mcp)에서 생성한 MCP server들을 활용합니다. 아래와 같이 메뉴에서 필요한 MCP 서버를 선택한 후에 질문을 입력하면 아래와 같이 tool들에 대한 정보를 MCP server로부터 가져옵니다. 여기에서는 code interpreter와 tavily를 선택하였으므로, repl_coder, repl_drawer, tavily-search, tavily-extract가 사용할 수 있는 tool입니다. 
 
