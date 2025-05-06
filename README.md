@@ -188,8 +188,8 @@ async def Operator(state: State) -> dict:
 
 이때 "Strawberry의 r의 갯수는?"와 같은 질문에 대해서 아래와 같은 Plan이 실행되었습니다.
 
-![image](https://github.com/user-attachments/assets/f081f272-67ed-437f-aa70-d819c748a7af)
+<img src="https://github.com/user-attachments/assets/f081f272-67ed-437f-aa70-d819c748a7af" width="550">
 
 Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습니다.
 
-<img src="https://github.com/user-attachments/assets/ca1943fe-8c93-4912-aa6d-f378fbb88d13" width="500">
+<img src="https://github.com/user-attachments/assets/ca1943fe-8c93-4912-aa6d-f378fbb88d13" width="550">
