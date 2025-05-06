@@ -29,21 +29,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("graph-implementation")
 
-import json
-def load_config():
-    config = None
-    try:
-        with open("/home/config.json", "r", encoding="utf-8") as f:
-            config = json.load(f)
-            logger.info(f"config: {config}")
-
-    except Exception:
-        logger.info("use local configuration")
-        with open("application/config.json", "r", encoding="utf-8") as f:
-            config = json.load(f)
-    
-    return config
-config = load_config()
+import utils
+config = utils.load_config()
 
 team_members: list[str]
 tool_list: list[BaseTool]

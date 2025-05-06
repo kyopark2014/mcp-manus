@@ -1,7 +1,9 @@
 {
-    "dependencies": ["."],
-    "graphs": {
-      "agent": "implementation:compiled_agent"
+    "dependencies":[
+       "."
+    ],
+    "graphs":{
+       "agent":"implementation:manus_agent"
     },
-    "env": ".env"
-  }
+    "env":".env"
+ }
