@@ -231,7 +231,7 @@ Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습
 
 ![image](https://github.com/user-attachments/assets/76f8b1df-e8ec-4e05-b9a5-3e89c58906ec)
 
-사용할 수 있는 rtool은 ead_documentation, search_documentation, recommend, generate_diagram, get_diagram_examples, list_icons, tavily-search, tavily-extract 입니다. 이를 이용해 생성한 plan은 아래와 같습니다.
+사용할 수 있는 tool은 read_documentation, search_documentation, recommend, generate_diagram, get_diagram_examples, list_icons, tavily-search, tavily-extract 입니다. 이를 이용해 생성한 plan은 아래와 같습니다.
 
 ```text
 ## Title: AWS 생성형 AI Chatbot with RAG 구현 가이드
