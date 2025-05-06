@@ -227,9 +227,42 @@ Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습
 
 ## 활용 예제
 
-아래와 같이 "aws document", "aws cost", "aws diagram"을 선택한 후에 "AWS의 VPC를 On-Prem과 안전하게 연결하는 방법과 예상되는 비용은?"을 입력하면 아래와 같이 사용할 수 있는 MCP tool들의 정보를 가져와서 적절한 plan을 생성합니다.
+아래와 같이 "aws document", "aws diagram", "tavily"을 선택한 후에 "aws에서 생성형 AI chatbot을 RAG와 함께 구현하는 방법?"을 입력하면 아래와 같이 사용할 수 있는 MCP tool들의 정보를 가져와서 적절한 plan을 생성합니다.
 
-![image](https://github.com/user-attachments/assets/9f9bb89f-67b1-4f68-9fd0-7f565142c814)
+![image](https://github.com/user-attachments/assets/76f8b1df-e8ec-4e05-b9a5-3e89c58906ec)
 
+사용할 수 있는 rtool은 ead_documentation, search_documentation, recommend, generate_diagram, get_diagram_examples, list_icons, tavily-search, tavily-extract 입니다. 이를 이용해 생성한 plan은 아래와 같습니다.
 
-![image](https://github.com/user-attachments/assets/1a700b55-9067-49db-9bce-3bdfd2d7cfb1)
+```text
+## Title: AWS 생성형 AI Chatbot with RAG 구현 가이드
+
+## Steps:
+### 1. search_documentation: AWS RAG 및 Chatbot 관련 문서 검색
+- [x] Amazon Bedrock 관련 문서 검색
+- [x] RAG 구현 관련 AWS 문서 검색
+- [x] Amazon Kendra와 OpenSearch 관련 문서 검색
+- [x] AWS Lambda와 API Gateway 관련 문서 검색
+
+### 2. read_documentation: 핵심 문서 상세 분석
+- [ ] Bedrock 구현 가이드 분석
+  - https://docs.aws.amazon.com/prescriptive-guidance/latest/retrieval-augmented-generation-options/rag-custom-retrievers.html
+  - https://docs.aws.amazon.com/bedrock/latest/userguide/evaluation-kb.html
+  - https://docs.aws.amazon.com/nova/latest/userguide/rag-systems.html
+- [ ] RAG 아키텍처 구현 방법 분석
+- [ ] Kendra/OpenSearch 통합 방법 분석
+- [ ] Lambda 함수 구현 가이드 분석
+  - https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html
+  - https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway-tutorial.html
+
+### 3. generate_diagram: RAG 기반 Chatbot 아키텍처 다이어그램 생성
+- [ ] 전체 시스템 아키텍처 다이어그램 생성
+- [ ] 데이터 흐름 표시
+- [ ] 주요 AWS 서비스 연동 구조 표시
+- [ ] 사용자 요청부터 응답까지의 프로세스 플로우 표시
+
+### 4. tavily-search: 추가 구현 사례 및 모범 사례 조사
+- [ ] AWS RAG 구현 사례 검색
+- [ ] 성능 최적화 방법 조사
+- [ ] 비용 최적화 방안 조사
+- [ ] 보안 구성 모범 사례 조사
+```
