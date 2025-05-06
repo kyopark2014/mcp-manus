@@ -180,6 +180,37 @@ async def Operator(state: State) -> dict:
         }
 ```
 
+### Reporter의 구현
+
+[reporter.md](./application/reporter.md)을 활용하여 보고서를 생성합니다. 
+
+```python
+def Reporter(state: State) -> dict:
+    prompt_name = "Reporter"
+    system_prompt=get_prompt_template(prompt_name)
+    logger.info(f"system_prompt: {system_prompt}")
+    
+    llm = chat.get_chat(extended_thinking="Disable")
+
+    human = "{messages}"
+    reporter_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            ("human", human)
+        ]
+    )
+
+    prompt = reporter_prompt | llm 
+    result = prompt.invoke({
+        "messages": state["messages"]
+    })
+
+    return {
+        "report": result.content,
+        "full_plan": state["full_plan"]
+    }
+```
+
 ### MCP의 활용
 
 여기에서는 [MCP-github](https://github.com/kyopark2014/mcp)에서 생성한 MCP server들을 활용합니다. 아래와 같이 메뉴에서 필요한 MCP 서버를 선택한 후에 질문을 입력하면 아래와 같이 tool들에 대한 정보를 MCP server로부터 가져옵니다. 여기에서는 code interpreter와 tavily를 선택하였으므로, repl_coder, repl_drawer, tavily-search, tavily-extract가 사용할 수 있는 tool입니다. 
