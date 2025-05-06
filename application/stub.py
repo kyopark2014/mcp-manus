@@ -28,7 +28,7 @@ def ManusAgent(
         "Operator",
         "to_planner",
         "to_operator",
-        "should_end",
+        "Reporter",
     }
 
     missing_nodes = expected_implementations - all_names
@@ -46,9 +46,9 @@ def ManusAgent(
     builder.add_node("Coordinator", nodes_by_name["Coordinator"])
     builder.add_node("Planner", nodes_by_name["Planner"])
     builder.add_node("Operator", nodes_by_name["Operator"])
-
+    builder.add_node("Reporter", nodes_by_name["Reporter"])
     # Add edges
-    builder.add_edge(START, "Coordinator")
+    builder.add_edge(START, "Coordinator")    
     builder.add_conditional_edges(
         "Coordinator",
         nodes_by_name["to_planner"],
@@ -62,15 +62,9 @@ def ManusAgent(
         nodes_by_name["to_operator"],
         [
             "Operator",
-            END,
+            "Reporter",
         ],
-    )
-    builder.add_conditional_edges(
-        "Operator",
-        nodes_by_name["should_end"],
-        [
-            END,
-            "Planner",
-        ],
-    )
+    )    
+    builder.add_edge("Operator", "Planner")
+    builder.add_edge("Reporter", END)
     return builder

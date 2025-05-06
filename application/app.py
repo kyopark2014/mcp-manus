@@ -177,8 +177,8 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             chat.save_chat_history(prompt, response)
 
         elif mode == 'MANUS':
-            import implementation
-            implementation.write_result("Question: " + prompt)
+            # import implementation
+            # implementation.write_result("Question: " + prompt)
 
             with st.status("thinking...", expanded=True, state="running") as status:
                 # response = manus.run(prompt)
@@ -190,7 +190,7 @@ if prompt := st.chat_input("메시지를 입력하세요."):
                     response = response[response.find('</thinking>')+12:]
                     logger.info(f"response without tag: {response}")
 
-                st.write(response)
+                st.markdown(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
                 chat.save_chat_history(prompt, response)

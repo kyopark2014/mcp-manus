@@ -23,7 +23,8 @@ edges:
     paths: [__end__, Planner]
   - from: Planner
     condition: to_operator
-    paths: [Operator, __end__]
+    paths: [Operator, Reporter]
   - from: Operator
-    condition: should_end
-    paths: [__end__, Planner]
+    to: Planner
+  - from: Reporter
+    to: __end__
