@@ -266,3 +266,8 @@ Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습
 - [ ] 비용 최적화 방안 조사
 - [ ] 보안 구성 모범 사례 조사
 ```
+
+이때 생성된 결과는 아래와 같습니다.
+
+<img src="https://github.com/user-attachments/assets/809cb6cb-aa41-41c3-969f-a9a86cad5609" width="550">
+
