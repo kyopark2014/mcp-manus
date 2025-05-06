@@ -14,7 +14,7 @@ from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langgraph.constants import START, END
 from langchain_core.tools import BaseTool
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 
 import logging
 import sys
@@ -157,7 +157,7 @@ def Planner(state: State) -> dict:
             logger.info(f"final_response: {final_response}")
             return {
                 "full_plan": result.content,
-                "final_response": final_response
+                "final_response": final_response                
             }
 
     return {
@@ -220,7 +220,7 @@ async def Operator(state: State) -> dict:
     logger.info(f"task: {task}")
 
     if next == "FINISHED":
-        next = END
+        return
     else:
         tool_info = []
         for tool in tool_list:
@@ -236,10 +236,14 @@ async def Operator(state: State) -> dict:
         # logger.info(f"response of Operator: {response}")
 
         logger.info(f"result: {response["messages"][-1].content}")
+        output = response["messages"][-1].content
         
-    return {
-        "messages": [response["messages"][-1]]
-    }
+        return {
+            "messages": [
+                HumanMessage(content=json.dumps(task)),
+                AIMessage(content=output)
+            ]
+        }
 
 def Reporter(state: State) -> dict:
     logger.info(f"###### Reporter ######")
@@ -268,10 +272,9 @@ def Reporter(state: State) -> dict:
     })
     logger.info(f"result of Reporter: {result}")
 
-    show_info(f"{state['full_plan']}")
-    
     return {
-        "report": result.content 
+        "report": result.content,
+        "full_plan": state["full_plan"]
     }
 
 agent = ManusAgent(
@@ -303,6 +306,9 @@ async def run(question: str):
             logger.info(f"Finished running: {key}")
     
     logger.info(f"value: {value}")
+
+    if "full_plan" in value:
+        show_info(f"{value['full_plan']}")
 
     if "report" in value:
         return value["report"]
