@@ -12,7 +12,7 @@ LangBuilder를 이용해 Manus Workflow를 정의합니다. [LangBuilder를](htt
 
 이를 LangGraph Studio를 이용해 graph 형태로 그리면 아래와 같습니다.
 
-<img src="https://github.com/user-attachments/assets/07beb69d-aaf2-4fc3-bb4b-ddddbec72743" width="400">
+<img src="https://github.com/user-attachments/assets/07beb69d-aaf2-4fc3-bb4b-ddddbec72743" width="500">
 
 ### State 구현
 
