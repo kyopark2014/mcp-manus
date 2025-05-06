@@ -1,5 +1,7 @@
 import sys
 import chat
+import json
+import re
 
 from datetime import datetime
 from typing_extensions import TypedDict
@@ -196,9 +198,25 @@ async def Operator(state: State) -> dict:
         "team_members": team_members
     })
     logger.info(f"result: {result}")
-
-    import json
-    result_dict = json.loads(result.content)
+    
+    content = result.content
+    # Remove control characters
+    content = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', content)
+    # Try to extract JSON string
+    try:
+        # Regular expression to find JSON object
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            content = json_match.group(0)
+        result_dict = json.loads(content)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {e}")
+        logger.error(f"Problematic content: {content}")
+        return {
+            "messages": [
+                HumanMessage(content="JSON 파싱 오류가 발생했습니다. 다시 시도해주세요.")
+            ]
+        }
 
     next = result_dict["next"]
     logger.info(f"next: {next}")
@@ -234,9 +252,6 @@ async def Operator(state: State) -> dict:
 
 def Reporter(state: State) -> dict:
     logger.info(f"###### Reporter ######")
-
-    question = state["messages"][0].content
-    logger.info(f"question: {question}")
 
     prompt_name = "Reporter"
 

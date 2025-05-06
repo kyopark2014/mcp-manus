@@ -6,6 +6,7 @@ import uuid
 import asyncio
 import json
 import mcp_client
+import re
 
 from botocore.config import Config
 from langchain_aws import ChatBedrock
@@ -14,6 +15,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from io import BytesIO
+from PIL import Image
+from urllib import parse
 
 import logging
 import sys
@@ -37,6 +41,8 @@ multi_region = "Disable"
 
 models = info.get_model_info(model_name)
 reasoning_mode = 'Disable'
+s3_prefix = 'docs'
+s3_image_prefix = 'images'
 
 mcp_json = ""
 
@@ -50,6 +56,14 @@ if accountId is None:
 
 region = config["region"] if "region" in config else "us-west-2"
 logger.info(f"region: {region}")
+
+path = config["sharing_url"] if "sharing_url" in config else None
+if path is None:
+    raise Exception ("No Sharing URL")
+
+s3_bucket = config["s3_bucket"] if "s3_bucket" in config else None
+if s3_bucket is None:
+    raise Exception ("No storage!")
 
 # api key to get weather information in agent
 secretsmanager = boto3.client(
@@ -204,6 +218,77 @@ def initiate():
         map_chain[userId] = memory_chain
 
 initiate()
+
+def upload_to_s3(file_bytes, file_name):
+    """
+    Upload a file to S3 and return the URL
+    """
+    try:
+        s3_client = boto3.client(
+            service_name='s3',
+            region_name=bedrock_region
+        )
+        # Generate a unique file name to avoid collisions
+        #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        #unique_id = str(uuid.uuid4())[:8]
+        #s3_key = f"uploaded_images/{timestamp}_{unique_id}_{file_name}"
+
+        content_type = utils.get_contents_type(file_name)       
+        logger.info(f"content_type: {content_type}") 
+
+        if content_type == "image/jpeg" or content_type == "image/png":
+            s3_key = f"{s3_image_prefix}/{file_name}"
+        else:
+            s3_key = f"{s3_prefix}/{file_name}"
+        
+        user_meta = {  # user-defined metadata
+            "content_type": content_type,
+            "model_name": model_name
+        }
+        
+        response = s3_client.put_object(
+            Bucket=s3_bucket, 
+            Key=s3_key, 
+            ContentType=content_type,
+            Metadata = user_meta,
+            Body=file_bytes            
+        )
+        logger.info(f"upload response: {response}")
+
+        #url = f"https://{s3_bucket}.s3.amazonaws.com/{s3_key}"
+        url = path+'/'+s3_image_prefix+'/'+parse.quote(file_name)
+        return url
+    
+    except Exception as e:
+        err_msg = f"Error uploading to S3: {str(e)}"
+        logger.info(f"{err_msg}")
+        return None
+
+def extract_and_display_s3_images(text, s3_client):
+    """
+    Extract S3 URLs from text, download images, and return them for display
+    """
+    s3_pattern = r"https://[\w\-\.]+\.s3\.amazonaws\.com/[\w\-\./]+"
+    s3_urls = re.findall(s3_pattern, text)
+
+    images = []
+    for url in s3_urls:
+        try:
+            bucket = url.split(".s3.amazonaws.com/")[0].split("//")[1]
+            key = url.split(".s3.amazonaws.com/")[1]
+
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            image_data = response["Body"].read()
+
+            image = Image.open(BytesIO(image_data))
+            images.append(image)
+
+        except Exception as e:
+            err_msg = f"Error downloading image from S3: {str(e)}"
+            logger.info(f"{err_msg}")
+            continue
+
+    return images
 
 ####################### LangChain #######################
 # General Conversation
