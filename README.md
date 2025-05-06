@@ -224,3 +224,12 @@ def Reporter(state: State) -> dict:
 Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습니다.
 
 <img src="https://github.com/user-attachments/assets/ca1943fe-8c93-4912-aa6d-f378fbb88d13" width="550">
+
+## 활용 예제
+
+아래와 같이 "aws document", "aws cost", "aws diagram"을 선택한 후에 "AWS의 VPC를 On-Prem과 안전하게 연결하는 방법과 예상되는 비용은?"을 입력하면 아래와 같이 사용할 수 있는 MCP tool들의 정보를 가져와서 적절한 plan을 생성합니다.
+
+![image](https://github.com/user-attachments/assets/9f9bb89f-67b1-4f68-9fd0-7f565142c814)
+
+
+![image](https://github.com/user-attachments/assets/1a700b55-9067-49db-9bce-3bdfd2d7cfb1)
