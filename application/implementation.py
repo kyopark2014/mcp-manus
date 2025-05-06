@@ -240,12 +240,8 @@ async def Operator(state: State) -> dict:
             tool_info.append(tool)
             logger.info(f"tool_info: {tool_info}")
     
-    # from langgraph.prebuilt import create_react_agent
-    
-    # agent = create_react_agent(tools=tool_info, model=llm)
     agent, config = chat.create_agent(tool_info)
 
-    # HumanMessage 형식으로 변환
     messages = [HumanMessage(content=json.dumps(task))]
     response = await agent.ainvoke({"messages": messages}, config)
     logger.info(f"response: {response}")

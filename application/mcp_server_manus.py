@@ -35,12 +35,10 @@ def reporter(user_request: str):
     """
     Write final report.
     user_request: the user's request
-    """
-    
+    """    
     return manus.reporter(user_request)
 
 if __name__ =="__main__":
     print(f"###### main ######")
     mcp.run(transport="stdio")
-
 

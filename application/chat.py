@@ -407,3 +407,93 @@ def create_agent(tools):
     }
 
     return app, config
+
+
+def research_agent(tools):
+    tool_node = ToolNode(tools)
+
+    chatModel = get_chat(extended_thinking="Disable")
+    model = chatModel.bind_tools(tools)
+
+    class State(TypedDict):
+        messages: Annotated[list, add_messages]
+
+    def call_model(state: State, config):
+        logger.info(f"###### call_model ######")
+        # logger.info(f"state: {state['messages']}")
+
+        last_message = state['messages'][-1]
+        logger.info(f"last message: {last_message}")
+
+        from template import get_prompt_template
+        prompt_name = "researcher"
+        system_prompt=get_prompt_template(prompt_name)
+        logger.info(f"system_prompt: {system_prompt}")
+
+        # system = (
+        #     "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
+        #     "상황에 맞는 구체적인 세부 정보를 충분히 제공합니다."
+        #     "모르는 질문을 받으면 솔직히 모른다고 말합니다."
+        #     "한국어로 답변하세요."
+        # )
+
+        try:
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", system_prompt),
+                    MessagesPlaceholder(variable_name="messages"),
+                ]
+            )
+            chain = prompt | model
+                
+            response = chain.invoke(state["messages"])
+            # logger.info(f"call_model response: {response}")
+            logger.info(f"call_model: {response.content}")
+
+        except Exception:
+            response = AIMessage(content="답변을 찾지 못하였습니다.")
+
+            err_msg = traceback.format_exc()
+            logger.info(f"error message: {err_msg}")
+            # raise Exception ("Not able to request to LLM")
+
+        return {"messages": [response]}
+
+    def should_continue(state: State) -> Literal["continue", "end"]:
+        logger.info(f"###### should_continue ######")
+
+        messages = state["messages"]    
+        last_message = messages[-1]
+        
+        if isinstance(last_message, AIMessage) and last_message.tool_calls:
+            tool_name = last_message.tool_calls[-1]['name']
+            logger.info(f"--- CONTINUE: {tool_name} ---")
+            return "continue"
+        else:
+            logger.info(f"--- END ---")
+            return "end"
+
+    def buildChatAgent():
+        workflow = StateGraph(State)
+
+        workflow.add_node("agent", call_model)
+        workflow.add_node("action", tool_node)
+        workflow.add_edge(START, "agent")
+        workflow.add_conditional_edges(
+            "agent",
+            should_continue,
+            {
+                "continue": "action",
+                "end": END,
+            },
+        )
+        workflow.add_edge("action", "agent")
+
+        return workflow.compile() 
+
+    app = buildChatAgent()
+    config = {
+        "recursion_limit": 50
+    }
+
+    return app, config

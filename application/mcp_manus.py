@@ -53,3 +53,20 @@ def reporter(user_request: str):
 
     return result.content
 
+# async def get_tool_info():
+#     import mcp_config
+#     mcp_selections = {"tavily", "ArXiv", "wikipedia", "aws document"}
+#     mcp_json = mcp_config.load_selected_config(mcp_selections)
+#     logger.info(f"mcp_json: {mcp_json}")
+
+#     import mcp_client
+#     server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
+#     logger.info(f"server_params: {server_params}")
+
+#     from langchain_mcp_adapters.client import MultiServerMCPClient
+#     async with MultiServerMCPClient(server_params) as client:
+#         tools = client.get_tools()
+#         logger.info(f"tools: {tools}")
+
+#         return tools
+
