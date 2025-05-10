@@ -130,7 +130,7 @@ def load_config(mcp_type):
                 "aws_storage": {
                     "command": "python",
                     "args": [
-                        "application/mcp_server_aws_s3.py"
+                        "application/mcp_server_aws_storage.py"
                     ]
                 }
             }

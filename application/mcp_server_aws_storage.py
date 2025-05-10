@@ -1,6 +1,6 @@
 import logging
 import sys
-import mcp_s3 as storage
+import mcp_storage as storage
 
 from typing import Dict, Optional, Any
 from mcp.server.fastmcp import FastMCP 
@@ -92,7 +92,65 @@ async def get_total_storage_usage(
     """
 
     return await storage.get_total_storage_usage(region)
+
+@mcp.tool() 
+async def get_ebs_volumes_usage(
+    region: Optional[str] = "us-west-2",
+    filters: Optional[List[Dict]] = None
+) -> Dict:
+    """
+    Get EBS volumes usage information
     
+    Args:
+        region: AWS region name
+        filters: Optional list of filters to apply when retrieving volumes
+                Example: [{'Name': 'status', 'Values': ['available']}]
+    
+    Returns:
+        dict: Dictionary containing total EBS storage information and per-volume details
+    """
+    return await storage.get_ebs_volumes_usage(region, filters)
+
+@mcp.tool()
+async def get_ebs_snapshots_usage(
+    region: Optional[str] = "us-west-2",
+    owner_ids: Optional[List[str]] = None,
+    filters: Optional[List[Dict]] = None
+) -> Dict:
+    """
+    Get EBS snapshots usage information
+    
+    Args:
+        region: AWS region name
+        owner_ids: Optional list of AWS account IDs that own the snapshots
+        filters: Optional list of filters to apply when retrieving snapshots
+                Example: [{'Name': 'status', 'Values': ['completed']}]
+    
+    Returns:
+        dict: Dictionary containing total EBS snapshots information and per-snapshot details
+    """
+    return await storage.get_ebs_snapshots_usage(region, owner_ids, filters)
+
+@mcp.tool() 
+async def get_efs_usage(
+    region: Optional[str] = "us-west-2",
+    file_system_ids: Optional[List[str]] = None,
+    period_hours: int = 24
+) -> Dict:
+    """
+    Get EFS file systems usage information using CloudWatch metrics
+    
+    Args:
+        region: AWS region name
+        file_system_ids: Optional list of EFS file system IDs to check
+                        If None, all accessible file systems will be checked
+        period_hours: Period in hours to check for metrics (default: 24 hours)
+    
+    Returns:
+        dict: Dictionary containing EFS storage information and per-file-system details
+    """
+    return await storage.get_efs_usage(region, file_system_ids, period_hours)
+
 ######################################
 # AWS Logs
 ######################################
