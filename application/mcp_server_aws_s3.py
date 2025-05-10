@@ -79,6 +79,19 @@ async def list_resources(
     logger.info(f"list_resources --> start_after: {start_after}, max_buckets: {max_buckets}, region: {region}")
     
     return await storage.list_resources(start_after, max_buckets, region)
+
+@mcp.tool() 
+async def get_total_storage_usage(
+    region: Optional[str] = "us-west-2"
+) -> dict:
+    """
+    Calculate total storage usage across all S3 buckets
+    
+    Returns:
+        dict: Dictionary containing total size in bytes, formatted size, and per-bucket breakdown
+    """
+
+    return await storage.get_total_storage_usage(region)
     
 ######################################
 # AWS Logs

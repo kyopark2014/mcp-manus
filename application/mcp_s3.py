@@ -143,7 +143,7 @@ async def list_resources(
 
             try:
                 # List objects in the bucket with a reasonable limit
-                objects = await list_objects(bucket_name, max_keys=1000)
+                objects = await list_objects(bucket_name, max_keys=100)
 
                 for obj in objects:
                     if 'Key' in obj and not obj['Key'].endswith('/'):
@@ -176,3 +176,108 @@ async def list_resources(
 
     logger.info(f"Returning {len(resources)} resources")
     return resources
+
+async def get_total_storage_usage(
+    region: Optional[str] = "us-west-2"
+) -> dict:
+    """
+    Calculate total storage usage across all S3 buckets
+    
+    Returns:
+        dict: Dictionary containing total size in bytes, formatted size, and per-bucket breakdown
+    """
+    logger.info("Calculating total S3 storage usage")
+    total_size_bytes = 0
+    bucket_stats = {}
+    
+    try:
+        # Get all buckets to analyze
+        buckets = await list_buckets(max_buckets=1000, region=region)
+        logger.info(f"Analyzing storage for {len(buckets)} buckets")
+        
+        # Process each bucket to get storage information
+        semaphore = asyncio.Semaphore(5)  # Limit concurrent operations
+        
+        async def process_bucket_storage(bucket):
+            bucket_name = bucket['Name']
+            bucket_size = 0
+            object_count = 0
+            
+            try:
+                # We need to handle pagination for buckets with many objects
+                continuation_token = None
+                while True:
+                    # Create parameters for list_objects_v2
+                    params = {
+                        'Bucket': bucket_name,
+                        'MaxKeys': 1000  # Maximum allowed by API
+                    }
+                    
+                    if continuation_token:
+                        params['ContinuationToken'] = continuation_token
+                    
+                    async with session.client('s3', region_name=region) as s3:
+                        response = await s3.list_objects_v2(**params)
+                        
+                        # Process objects in this page
+                        for obj in response.get('Contents', []):
+                            if 'Size' in obj:
+                                bucket_size += obj['Size']
+                                object_count += 1
+                        
+                        # Check if there are more objects to fetch
+                        if response.get('IsTruncated', False):
+                            continuation_token = response.get('NextContinuationToken')
+                        else:
+                            break
+                
+                return bucket_name, bucket_size, object_count
+                
+            except Exception as e:
+                logger.error(f"Error calculating storage for bucket {bucket_name}: {str(e)}")
+                return bucket_name, 0, 0
+        
+        async def process_with_semaphore(bucket):
+            async with semaphore:
+                return await process_bucket_storage(bucket)
+        
+        # Process all buckets concurrently with semaphore limit
+        results = await asyncio.gather(*[process_with_semaphore(bucket) for bucket in buckets])
+        
+        # Compile results
+        for bucket_name, size, count in results:
+            total_size_bytes += size
+            bucket_stats[bucket_name] = {
+                'size_bytes': size,
+                'size_formatted': format_size(size),
+                'object_count': count
+            }
+        
+        # Format the total size for human readability
+        total_size_formatted = format_size(total_size_bytes)
+        
+        return {
+            'total_size_bytes': total_size_bytes,
+            'total_size_formatted': total_size_formatted,
+            'bucket_count': len(buckets),
+            'buckets': bucket_stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating total storage usage: {str(e)}")
+        raise
+
+def format_size(size_bytes):
+    """
+    Format bytes into human-readable format
+    """
+    if size_bytes == 0:
+        return "0 B"
+    
+    size_names = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = 0
+    while size_bytes >= 1024 and i < len(size_names) - 1:
+        size_bytes /= 1024
+        i += 1
+    
+    return f"{size_bytes:.2f} {size_names[i]}"
