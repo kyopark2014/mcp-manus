@@ -111,25 +111,25 @@ async def get_ebs_volumes_usage(
     """
     return await storage.get_ebs_volumes_usage(region, filters)
 
-@mcp.tool()
-async def get_ebs_snapshots_usage(
-    region: Optional[str] = "us-west-2",
-    owner_ids: Optional[List[str]] = None,
-    filters: Optional[List[Dict]] = None
-) -> Dict:
-    """
-    Get EBS snapshots usage information
+# @mcp.tool()
+# async def get_ebs_snapshots_usage(
+#     region: Optional[str] = "us-west-2",
+#     owner_ids: Optional[List[str]] = None,
+#     filters: Optional[List[Dict]] = None
+# ) -> Dict:
+#     """
+#     Get EBS snapshots usage information
     
-    Args:
-        region: AWS region name
-        owner_ids: Optional list of AWS account IDs that own the snapshots
-        filters: Optional list of filters to apply when retrieving snapshots
-                Example: [{'Name': 'status', 'Values': ['completed']}]
+#     Args:
+#         region: AWS region name
+#         owner_ids: Optional list of AWS account IDs that own the snapshots
+#         filters: Optional list of filters to apply when retrieving snapshots
+#                 Example: [{'Name': 'status', 'Values': ['completed']}]
     
-    Returns:
-        dict: Dictionary containing total EBS snapshots information and per-snapshot details
-    """
-    return await storage.get_ebs_snapshots_usage(region, owner_ids, filters)
+#     Returns:
+#         dict: Dictionary containing total EBS snapshots information and per-snapshot details
+#     """
+#     return await storage.get_ebs_snapshots_usage(region, owner_ids, filters)
 
 @mcp.tool() 
 async def get_efs_usage(

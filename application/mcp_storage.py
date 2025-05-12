@@ -94,7 +94,7 @@ async def list_buckets(
 async def list_objects(
     bucket_name: str, 
     prefix: Optional[str] = "", 
-    max_keys: Optional[int] = 1000,
+    max_keys: Optional[int] = 500,
     region: Optional[str] = "us-west-2"
 ) -> List[dict]:
     """
@@ -193,7 +193,7 @@ async def get_total_storage_usage(
     
     try:
         # Get all buckets to analyze
-        buckets = await list_buckets(max_buckets=1000, region=region)
+        buckets = await list_buckets(max_buckets=100, region=region)
         logger.info(f"Analyzing storage for {len(buckets)} buckets")
         
         # Process each bucket to get storage information
@@ -211,7 +211,7 @@ async def get_total_storage_usage(
                     # Create parameters for list_objects_v2
                     params = {
                         'Bucket': bucket_name,
-                        'MaxKeys': 1000  # Maximum allowed by API
+                        'MaxKeys': 500  # Maximum allowed by API
                     }
                     
                     if continuation_token:
