@@ -2,6 +2,8 @@ import sys
 import chat
 import json
 import re
+import random
+import string
 
 from datetime import datetime
 from typing_extensions import TypedDict
@@ -88,7 +90,9 @@ def Coordinator(state: State) -> dict:
     logger.info(f"result of Coordinator: {result}")
 
     final_response = ""
-    if result.content != 'to_planner':
+    if result.content.find('to_planner') == -1:
+        result.content = result.content.split('<next>')[0]
+
         logger.info(f"next: END")
         final_response = result.content    
     
@@ -107,10 +111,13 @@ def to_planner(state: State) -> str:
 
     return next
 
-def Planner(state: State) -> dict:
+def Planner(state: State, config: dict) -> dict:
     logger.info(f"###### Planner ######")
     # logger.info(f"state: {state}")
 
+    request_id = config.get("configurable", {}).get("request_id", "")
+    logger.info(f"request_id: {request_id}")
+    
     prompt_name = "planner"
 
     system = get_prompt_template(prompt_name)
@@ -134,7 +141,13 @@ def Planner(state: State) -> dict:
     logger.info(f"Planner: {result.content}")
 
     if "full_plan" in state and state["full_plan"] != "":
-        show_info(f"{result.content}") # shoe initial plan
+        #show_info(f"{result.content}") # shoe initial plan
+        file = f"artifacts/{request_id}.md"
+        with open(file, "a", encoding="utf-8") as f:
+            f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"{result.content}\n\n")
+
+        logger.info(f"Plan saved to {file}")
 
     output = result.content
     if output.find("<status>") != -1:
@@ -173,10 +186,11 @@ def to_operator(state: State) -> str:
 #     with open(file_path, "a", encoding="utf-8") as f:
 #         f.write(f"{result}\n\n\n")
 
-async def Operator(state: State) -> dict:
+async def Operator(state: State, config: dict) -> dict:
     logger.info(f"###### Operator ######")
     # logger.info(f"state: {state}")
 
+    request_id = config.get("configurable", {}).get("request_id", "")
     prompt_name = "operator"
 
     system = get_prompt_template(prompt_name)
@@ -242,6 +256,11 @@ async def Operator(state: State) -> dict:
 
         logger.info(f"result: {response["messages"][-1].content}")
         output = response["messages"][-1].content
+
+        file = f"artifacts/{request_id}.md"
+        with open(file, "a", encoding="utf-8") as f:
+            f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"{output}\n\n")
         
         return {
             "messages": [
@@ -294,11 +313,19 @@ agent = ManusAgent(
 manus_agent = agent.compile()
 
 async def run(question: str):
+    request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    logger.info(f"request_id: {request_id}")
+
+    file = f"artifacts/{request_id}.md"
+    with open(file, "w", encoding="utf-8") as f:
+        f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+
     inputs = {
         "messages": [HumanMessage(content=question)],
         "final_response": ""
     }
     config = {
+        "request_id": request_id,
         "recursion_limit": 50
     }
 

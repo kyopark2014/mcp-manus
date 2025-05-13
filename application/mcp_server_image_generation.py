@@ -34,15 +34,15 @@ except Exception as e:
 # Image Generation
 ######################################
 
-# from nova_canvas.consts import (
-#     DEFAULT_CFG_SCALE,
-#     DEFAULT_HEIGHT,
-#     DEFAULT_NUMBER_OF_IMAGES,
-#     DEFAULT_OUTPUT_DIR,
-#     DEFAULT_QUALITY,
-#     DEFAULT_WIDTH,
-#     NOVA_CANVAS_MODEL_ID,
-# )
+from nova_canvas.consts import (
+    DEFAULT_CFG_SCALE,
+    DEFAULT_HEIGHT,
+    DEFAULT_NUMBER_OF_IMAGES,
+    DEFAULT_OUTPUT_DIR,
+    DEFAULT_QUALITY,
+    DEFAULT_WIDTH,
+    NOVA_CANVAS_MODEL_ID,
+)
 
 # @mcp.tool(name='generate_image')
 # async def mcp_generate_image(

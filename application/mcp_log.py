@@ -21,33 +21,55 @@ async def list_groups(
 ) -> str:
     """List available CloudWatch log groups."""
 
-    log_client = boto3.client(
-        service_name='logs',
-        region_name=region
-    )
-
-    kwargs = {}
-    if prefix:
-        kwargs["logGroupNamePrefix"] = prefix
-
-    response = log_client.describe_log_groups(**kwargs)
-    log_groups = response.get("logGroups", [])
-
-    # Format the response
-    formatted_groups = []
-    for group in log_groups:
-        formatted_groups.append(
-            {
-                "logGroupName": group.get("logGroupName"),
-                "creationTime": group.get("creationTime"),
-                "storedBytes": group.get("storedBytes"),
-            }
+    try:
+        log_client = boto3.client(
+            service_name='logs',
+            region_name=region
         )
 
-    response_json = json.dumps(formatted_groups, ensure_ascii=True)
-    logger.info(f"response: {response_json}")
+        kwargs = {}
+        if prefix:
+            kwargs["logGroupNamePrefix"] = prefix
 
-    return response_json
+        response = log_client.describe_log_groups(**kwargs)
+        log_groups = response.get("logGroups", [])
+
+        # Format the response
+        formatted_groups = []
+        for group in log_groups:
+            creation_time = group.get("creationTime")
+            if creation_time:
+                try:
+                    creation_time = datetime.fromtimestamp(creation_time / 1000).isoformat()
+                except Exception:
+                    creation_time = str(creation_time)
+                    
+            formatted_groups.append(
+                {
+                    "logGroupName": group.get("logGroupName"),
+                    "creationTime": creation_time,
+                    "storedBytes": group.get("storedBytes"),
+                }
+            )
+
+        result = {
+            "status": "success",
+            "groups": formatted_groups,
+            "count": len(formatted_groups)
+        }
+        response_json = json.dumps(result, ensure_ascii=True, default=str)
+        logger.info(f"response: {response_json}")
+
+        return response_json
+        
+    except Exception as e:
+        error_message = f"Error listing log groups: {str(e)}"
+        logger.error(error_message)
+        result = {
+            "status": "error",
+            "error": error_message
+        }
+        return json.dumps(result, ensure_ascii=True)
 
 def _parse_relative_time(time_str: str) -> Optional[int]:
     """Parse a relative time string into a timestamp."""
@@ -101,14 +123,54 @@ async def get_logs(
         region_name=region
     )
 
+    # First, check if the log group exists
+    try:
+        log_groups = log_client.describe_log_groups(logGroupNamePrefix=logGroupName)
+        log_group_exists = False
+        for group in log_groups.get('logGroups', []):
+            if group.get('logGroupName') == logGroupName:
+                log_group_exists = True
+                break
+        
+        if not log_group_exists:
+            error_message = f"Log group '{logGroupName}' does not exist"
+            logger.error(error_message)
+            return json.dumps({
+                "error": error_message,
+                "status": "error",
+                "code": "ResourceNotFoundException"
+            })
+    except Exception as e:
+        logger.error(f"Error checking log group existence: {str(e)}")
+        return json.dumps({
+            "error": f"Error checking log group: {str(e)}",
+            "status": "error"
+        })
+
     # Parse start and end times
     start_time_ms = None
     if startTime:
-        start_time_ms = _parse_relative_time(startTime)
+        try:
+            start_time_ms = _parse_relative_time(startTime)
+        except ValueError as e:
+            error_message = f"Invalid startTime format: {str(e)}"
+            logger.error(error_message)
+            return json.dumps({
+                "error": error_message,
+                "status": "error"
+            })
 
     end_time_ms = None
     if endTime:
-        end_time_ms = _parse_relative_time(endTime)
+        try:
+            end_time_ms = _parse_relative_time(endTime)
+        except ValueError as e:
+            error_message = f"Invalid endTime format: {str(e)}"
+            logger.error(error_message)
+            return json.dumps({
+                "error": error_message,
+                "status": "error"
+            })
 
     # Get logs
     kwargs = {
@@ -128,8 +190,24 @@ async def get_logs(
         kwargs["endTime"] = end_time_ms
 
     # Use filter_log_events for more flexible querying
-    response = log_client.filter_log_events(**kwargs)
-    events = response.get("events", [])
+    try:
+        response = log_client.filter_log_events(**kwargs)
+        events = response.get("events", [])
+    except log_client.exceptions.ResourceNotFoundException:
+        error_message = f"Log group '{logGroupName}' or stream '{logStreamName}' does not exist"
+        logger.error(error_message)
+        return json.dumps({
+            "error": error_message,
+            "status": "error",
+            "code": "ResourceNotFoundException"
+        })
+    except Exception as e:
+        error_message = f"Error retrieving logs: {str(e)}"
+        logger.error(error_message)
+        return json.dumps({
+            "error": error_message,
+            "status": "error"
+        })
 
     # Format the response
     formatted_events = []
@@ -149,6 +227,11 @@ async def get_logs(
             }
         )    
 
-    response_json = json.dumps(formatted_events, ensure_ascii=False, default=str)
+    response = {
+        "status": "success",
+        "events": formatted_events,
+        "count": len(formatted_events)
+    }
+    response_json = json.dumps(response, ensure_ascii=False, default=str)
     logger.info(f"response: {response_json}")
     return response_json

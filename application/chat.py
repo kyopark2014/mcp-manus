@@ -423,7 +423,8 @@ def create_agent(tools):
         # logger.info(f"state: {state['messages']}")
 
         last_message = state['messages'][-1]
-        logger.info(f"last message: {last_message}")
+        content = last_message.content.encode().decode('unicode_escape')
+        logger.info(f"last message: {content}")
 
         system = (
             "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
