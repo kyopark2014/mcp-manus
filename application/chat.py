@@ -7,7 +7,8 @@ import asyncio
 import json
 import mcp_client
 import re
-
+import implementation
+    
 from botocore.config import Config
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
@@ -704,7 +705,6 @@ def extract_thinking_tag(response, st):
     return msg
 
 async def mcp_rag_agent_multiple(query, historyMode, st):
-    global cached_mcp_json, cached_tools
     server_params = load_multiple_mcp_server_parameters()
     logger.info(f"server_params: {server_params}")
 
@@ -771,19 +771,11 @@ def run_mcp_agent(query, historyMode, st):
 
     logger.info(f"result: {result}")
     
-    return result, [], []
+    return result
 
 #########################################################
 # Manus
 #########################################################
-
-def run_manus(query, historyMode, st):
-    # mcp_client 모듈을 함수 내부에서 임포트
-    import mcp_client
-    result = asyncio.run(manus(query, model_type, historyMode, st, mcp_json, debug_mode))
-    logger.info(f"result: {result}")
-    
-    return result
 
 def get_tool_info(tools, st):    
     toolList = []
@@ -800,35 +792,49 @@ def show_implementation_info(message: str, st):
 
 async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
     # implementation 모듈을 함수 내부에서 임포트
-    import implementation
     implementation.show_info.callback = lambda msg: show_implementation_info(msg, st)
     
-    server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
+    server_params = load_multiple_mcp_server_parameters()
     logger.info(f"server_params: {server_params}")
-
-    response = ""
+    
     async with MultiServerMCPClient(server_params) as client:
-        tools = client.get_tools()
-        # logger.info(f"tools: {tools}")
+        response = ""
+        with st.status("thinking...", expanded=True, state="running") as status:            
+            tools = client.get_tools()
+            # logger.info(f"tools: {tools}")
 
-        if debug_mode == "Enable":
-            get_tool_info(tools, st)
+            if debug_mode == "Enable":
+                get_tool_info(tools, st)
 
-        # langgraph agent
-        implementation.update_team_members(tools)
-                            
-        response = await implementation.run(query)
-        logger.info(f"response: {response}")
+            # langgraph agent
+            implementation.update_team_members(tools)
+                                
+            response = await implementation.run(query)
+            logger.info(f"response: {response}")
 
-        # 메시지 큐 처리
-        while not implementation.message_queue.empty():
-            message = implementation.message_queue.get()
-            st.info(message)
+            # 메시지 큐 처리
+            while not implementation.message_queue.empty():
+                message = implementation.message_queue.get()
+                st.info(message)
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": message,
+                    "images": []
+                })
+
+            st.markdown(response)
+
             st.session_state.messages.append({
                 "role": "assistant", 
-                "content": message,
-                "images": []
+                "content": response,
+                "images": image_url if image_url else []
             })
 
-    return response
+        return response
 
+def run_manus(query, historyMode, st):
+    # mcp_client 모듈을 함수 내부에서 임포트
+    result = asyncio.run(manus(query, model_type, historyMode, st, mcp_json, debug_mode))
+    logger.info(f"result: {result}")
+    
+    return result
