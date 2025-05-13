@@ -343,64 +343,9 @@ def general_conversation(query):
         
     return response
 
-def run_agent(query, historyMode, st):
-    # mcp_client 모듈을 함수 내부에서 임포트
-    import mcp_client
-    result = asyncio.run(mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode))
-    logger.info(f"result: {result}")
-    
-    return result
-
-def get_tool_info(tools, st):    
-    toolList = []
-    for tool in tools:
-        name = tool.name
-        toolList.append(name)
-    
-    toolmsg = ', '.join(toolList)
-    st.info(f"Tools: {toolmsg}")
-
-def show_implementation_info(message: str, st):
-    st.info(message)
-    logger.info(f"Implementation Info: {message}")
-
-async def mcp_agent(query, model_type, historyMode, st, mcp_json, debug_mode):
-    # implementation 모듈을 함수 내부에서 임포트
-    import implementation
-    implementation.show_info.callback = lambda msg: show_implementation_info(msg, st)
-    
-    server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
-    logger.info(f"server_params: {server_params}")
-
-    response = ""
-    async with MultiServerMCPClient(server_params) as client:
-        tools = client.get_tools()
-        # logger.info(f"tools: {tools}")
-
-        if debug_mode == "Enable":
-            get_tool_info(tools, st)
-
-        # langgraph agent
-        implementation.update_team_members(tools)
-                            
-        response = await implementation.run(query)
-        logger.info(f"response: {response}")
-
-        # 메시지 큐 처리
-        while not implementation.message_queue.empty():
-            message = implementation.message_queue.get()
-            st.info(message)
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": message,
-                "images": []
-            })
-
-    return response
-
-####################### Agent #######################
+#########################################################
 # Agent 
-#####################################################
+#########################################################
 import re
 from langgraph.prebuilt import ToolNode
 from typing_extensions import Annotated, TypedDict
@@ -493,3 +438,397 @@ def create_agent(tools):
     }
 
     return app, config
+
+
+#########################################################
+# MCP RAG Agent
+#########################################################
+def load_multiple_mcp_server_parameters():
+    logger.info(f"mcp_json: {mcp_json}")
+
+    mcpServers = mcp_json.get("mcpServers")
+    logger.info(f"mcpServers: {mcpServers}")
+  
+    server_info = {}
+    if mcpServers is not None:
+        command = ""
+        args = []
+        for server in mcpServers:
+            logger.info(f"server: {server}")
+
+            config = mcpServers.get(server)
+            logger.info(f"config: {config}")
+
+            if "command" in config:
+                command = config["command"]
+            if "args" in config:
+                args = config["args"]
+            if "env" in config:
+                env = config["env"]
+
+                server_info[server] = {
+                    "command": command,
+                    "args": args,
+                    "env": env,
+                    "transport": "stdio"
+                }
+            else:
+                server_info[server] = {
+                    "command": command,
+                    "args": args,
+                    "transport": "stdio"
+                }
+    logger.info(f"server_info: {server_info}")
+
+    return server_info
+
+def tool_info(tools, st):
+    tool_info = ""
+    tool_list = []
+    st.info("Tool 정보를 가져옵니다.")
+    for tool in tools:
+        tool_info += f"name: {tool.name}\n"    
+        if hasattr(tool, 'description'):
+            tool_info += f"description: {tool.description}\n"
+        tool_info += f"args_schema: {tool.args_schema}\n\n"
+        tool_list.append(tool.name)
+    # st.info(f"{tool_info}")
+    st.info(f"Tools: {tool_list}")
+
+debug_messages = []
+
+def get_debug_messages():
+    global debug_messages
+    messages = debug_messages.copy()
+    debug_messages = []  # Clear messages after returning
+    return messages
+
+def push_debug_messages(type, contents):
+    global debug_messages
+    debug_messages.append({
+        type: contents
+    })
+
+image_url = []
+references = []
+
+def status_messages(message):
+    global image_url, references
+
+    # type of message
+    if isinstance(message, AIMessage):
+        logger.info(f"status_messages (AIMessage): {message}")
+    elif isinstance(message, ToolMessage):
+        logger.info(f"status_messages (ToolMessage): {message}")
+    elif isinstance(message, HumanMessage):
+        logger.info(f"status_messages (HumanMessage): {message}")
+
+    if isinstance(message, AIMessage):
+        if message.content:
+            logger.info(f"content: {message.content}")
+            content = message.content
+            if len(content) > 500:
+                content = content[:500] + "..."       
+            push_debug_messages("text", content)
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            logger.info(f"Tool name: {message.tool_calls[0]['name']}")
+                
+            if 'args' in message.tool_calls[0]:
+                logger.info(f"Tool args: {message.tool_calls[0]['args']}")
+                    
+                args = message.tool_calls[0]['args']
+                if 'code' in args:
+                    logger.info(f"code: {args['code']}")
+                    push_debug_messages("text", args['code'])
+                elif message.tool_calls[0]['args']:
+                    status = f"Tool name: {message.tool_calls[0]['name']}  \nTool args: {message.tool_calls[0]['args']}"
+                    logger.info(f"status: {status}")
+                    push_debug_messages("text", status)
+
+    elif isinstance(message, ToolMessage):
+        if message.name:
+            logger.info(f"Tool name: {message.name}")
+            
+            if message.content:                
+                content = message.content
+                if len(content) > 500:
+                    content = content[:500] + "..."
+                logger.info(f"Tool result: {content}")                
+                status = f"Tool name: {message.name}  \nTool result: {content}"
+            else:
+                status = f"Tool name: {message.name}"
+
+            logger.info(f"status: {status}")
+            push_debug_messages("text", status)
+        try: 
+            # Parse Tavily search results
+            if isinstance(message.content, str) and "Title:" in message.content and "URL:" in message.content and "Content:" in message.content:
+                logger.info("Tavily parsing...")                    
+                items = message.content.split("\n\n")
+                for i, item in enumerate(items):
+                    logger.info(f"item[{i}]: {item}")
+                    if "Title:" in item and "URL:" in item and "Content:" in item:
+                        try:
+                            # Use string splitting instead of regex
+                            title_part = item.split("Title:")[1].split("URL:")[0].strip()
+                            url_part = item.split("URL:")[1].split("Content:")[0].strip()
+                            content_part = item.split("Content:")[1].strip()
+                            
+                            logger.info(f"title_part: {title_part}")
+                            logger.info(f"url_part: {url_part}")
+                            logger.info(f"content_part: {content_part}")
+                            
+                            references.append({
+                                "url": url_part,
+                                "title": title_part,
+                                "content": content_part[:100] + "..." if len(content_part) > 100 else content_part
+                            })
+                        except Exception as e:
+                            logger.info(f"Parsing error: {str(e)}")
+                            continue
+            logger.info(f"references: {references}")
+            
+            # Check JSON format
+            if isinstance(message.content, str) and (message.content.strip().startswith('{') or message.content.strip().startswith('[')):
+                tool_result = json.loads(message.content)
+                logger.info(f"tool_result: {tool_result}")
+            else:
+                tool_result = message.content
+                logger.info(f"tool_result (not JSON): {tool_result}")
+
+            if "path" in tool_result:
+                logger.info(f"Path: {tool_result['path']}")
+
+                path = tool_result['path']
+                if isinstance(path, list):
+                    for p in path:
+                        logger.info(f"image: {p}")
+                        if p.startswith('http') or p.startswith('https'):
+                            push_debug_messages("image", p)
+                            image_url.append(p)
+                        else:
+                            with open(p, 'rb') as f:
+                                image_data = f.read()
+                                push_debug_messages("image", image_data)
+                                image_url.append(p)
+                else:
+                    logger.info(f"image: {path}")
+                    try:
+                        if path.startswith('http') or path.startswith('https'):
+                            push_debug_messages("image", path)
+                            image_url.append(path)
+                        else:
+                            with open(path, 'rb') as f:
+                                image_data = f.read()
+                                push_debug_messages("image", image_data)
+                                image_url.append(path)
+                    except Exception as e:
+                        logger.error(f"Image display error: {str(e)}")
+                        status = f"Cannot display image: {str(e)}"
+                        push_debug_messages("text", image_data)
+
+            # Parse ArXiv papers
+            if "papers" in tool_result:
+                logger.info(f"size of papers: {len(tool_result['papers'])}")
+
+                papers = tool_result['papers']
+                for paper in papers:
+                    url = paper['url']
+                    title = paper['title']
+                    content = paper['abstract'][:100]
+                    logger.info(f"url: {url}, title: {title}, content: {content}")
+
+                    references.append({
+                        "url": url,
+                        "title": title,
+                        "content": content
+                    })
+                            
+            if isinstance(tool_result, list):
+                logger.info(f"size of tool_result: {len(tool_result)}")
+                for i, item in enumerate(tool_result):
+                    logger.info(f'item[{i}]: {item}')
+                    
+                    # Parse RAG references
+                    if "reference" in item:
+                        logger.info(f"reference: {item['reference']}")
+
+                        infos = item['reference']
+                        url = infos['url']
+                        title = infos['title']
+                        source = infos['from']
+                        logger.info(f"url: {url}, title: {title}, source: {source}")
+
+                        references.append({
+                            "url": url,
+                            "title": title,
+                            "content": item['contents'][:100]
+                        })
+
+                    # Parse other types of references
+                    if isinstance(item, str):
+                        try:
+                            item = json.loads(item)
+
+                            # Parse AWS Document references
+                            if "rank_order" in item:
+                                references.append({
+                                    "url": item['url'],
+                                    "title": item['title'],
+                                    "content": item['context'][:100]
+                                })
+                        except json.JSONDecodeError:
+                            logger.info(f"JSON parsing error: {item}")
+                            continue
+
+        except:
+            logger.info(f"Failed to parse message")
+            pass
+
+def extract_thinking_tag(response, st):
+    if response.find('<thinking>') != -1:
+        status = response[response.find('<thinking>')+10:response.find('</thinking>')]
+        logger.info(f"gent_thinking: {status}")
+        
+        if debug_mode=="Enable":
+            st.info(status)
+
+        if response.find('<thinking>') == 0:
+            msg = response[response.find('</thinking>')+12:]
+        else:
+            msg = response[:response.find('<thinking>')]
+        logger.info(f"msg: {msg}")
+    else:
+        msg = response
+
+    return msg
+
+async def mcp_rag_agent_multiple(query, historyMode, st):
+    global cached_mcp_json, cached_tools
+    server_params = load_multiple_mcp_server_parameters()
+    logger.info(f"server_params: {server_params}")
+
+    async with MultiServerMCPClient(server_params) as client:
+        ref = ""
+        with st.status("thinking...", expanded=True, state="running") as status:
+            tools = client.get_tools()
+            if debug_mode == "Enable":
+                tool_info(tools, st)
+                logger.info(f"tools: {tools}")
+
+            # react agent
+            # model = get_chat(extended_thinking="Disable")
+            # agent = create_react_agent(model, client.get_tools())
+
+            # langgraph agent
+            agent, config = create_agent(tools)
+
+            try:
+                response = await agent.ainvoke({"messages": query}, config)
+                logger.info(f"response: {response}")
+
+                result = response["messages"][-1].content
+                # logger.info(f"result: {result}")
+
+                debug_msgs = get_debug_messages()
+                for msg in debug_msgs:
+                    logger.info(f"debug_msg: {msg}")
+                    if "image" in msg:
+                        st.image(msg["image"])
+                    elif "text" in msg:
+                        st.info(msg["text"])
+
+                #logger.info(f"references: {references}")
+                #image_url, references = show_status_message(response["messages"], st)     
+                
+                if references:
+                    ref = "\n\n### Reference\n"
+                for i, reference in enumerate(references):
+                    ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+
+                result += ref
+
+                if model_type == "nova":
+                    result = extract_thinking_tag(result, st) # for nova
+
+                st.markdown(result)
+
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": result,
+                    "images": image_url if image_url else []
+                })
+
+                return result
+            except Exception as e:
+                logger.error(f"Error during agent invocation: {str(e)}")
+                raise Exception(f"Agent invocation failed: {str(e)}")
+
+
+def run_mcp_agent(query, historyMode, st):
+    result = asyncio.run(mcp_rag_agent_multiple(query, historyMode, st))
+    #result = asyncio.run(mcp_rag_agent_single(query, historyMode, st))
+
+    logger.info(f"result: {result}")
+    
+    return result, [], []
+
+#########################################################
+# Manus
+#########################################################
+
+def run_manus(query, historyMode, st):
+    # mcp_client 모듈을 함수 내부에서 임포트
+    import mcp_client
+    result = asyncio.run(manus(query, model_type, historyMode, st, mcp_json, debug_mode))
+    logger.info(f"result: {result}")
+    
+    return result
+
+def get_tool_info(tools, st):    
+    toolList = []
+    for tool in tools:
+        name = tool.name
+        toolList.append(name)
+    
+    toolmsg = ', '.join(toolList)
+    st.info(f"Tools: {toolmsg}")
+
+def show_implementation_info(message: str, st):
+    st.info(message)
+    logger.info(f"Implementation Info: {message}")
+
+async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
+    # implementation 모듈을 함수 내부에서 임포트
+    import implementation
+    implementation.show_info.callback = lambda msg: show_implementation_info(msg, st)
+    
+    server_params = mcp_client.load_multiple_mcp_server_parameters(mcp_json)
+    logger.info(f"server_params: {server_params}")
+
+    response = ""
+    async with MultiServerMCPClient(server_params) as client:
+        tools = client.get_tools()
+        # logger.info(f"tools: {tools}")
+
+        if debug_mode == "Enable":
+            get_tool_info(tools, st)
+
+        # langgraph agent
+        implementation.update_team_members(tools)
+                            
+        response = await implementation.run(query)
+        logger.info(f"response: {response}")
+
+        # 메시지 큐 처리
+        while not implementation.message_queue.empty():
+            message = implementation.message_queue.get()
+            st.info(message)
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": message,
+                "images": []
+            })
+
+    return response
+

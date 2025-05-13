@@ -144,7 +144,6 @@ def Planner(state: State, config: dict) -> dict:
         #show_info(f"{result.content}") # shoe initial plan
         file = f"artifacts/{request_id}.md"
         with open(file, "a", encoding="utf-8") as f:
-            f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"{result.content}\n\n")
 
         logger.info(f"Plan saved to {file}")
@@ -166,25 +165,25 @@ def Planner(state: State, config: dict) -> dict:
         "full_plan": result.content,
     }
 
-def to_operator(state: State) -> str:
+def to_operator(state: State, config: dict) -> str:
     logger.info(f"###### to_operator ######")
     # logger.info(f"state: {state}")
+
+    request_id = config.get("configurable", {}).get("request_id", "")
+    logger.info(f"request_id: {request_id}")
 
     if "final_response" in state and state["final_response"] != "":
         logger.info(f"Finished!!!")
         next = "Reporter"
+
+        file = f"artifacts/{request_id}.md"
+        with open(file, "a", encoding="utf-8") as f:
+            f.write(f"# Final Response\n\n{state["final_response"] }\n\n")
     else:
         logger.info(f"go to Operator...")
         next = "Operator"
 
     return next
-
-# def write_result(result: str):    
-#     file_path = "./artifacts/all_results.txt"
-#     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-#     with open(file_path, "a", encoding="utf-8") as f:
-#         f.write(f"{result}\n\n\n")
 
 async def Operator(state: State, config: dict) -> dict:
     logger.info(f"###### Operator ######")
@@ -259,8 +258,7 @@ async def Operator(state: State, config: dict) -> dict:
 
         file = f"artifacts/{request_id}.md"
         with open(file, "a", encoding="utf-8") as f:
-            f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"{output}\n\n")
+            f.write(f"# {task}\n\n{output}\n\n")
         
         return {
             "messages": [

@@ -24,6 +24,12 @@ mode_descriptions = {
     "일상적인 대화": [
         "대화이력을 바탕으로 챗봇과 일상의 대화를 편안히 즐길수 있습니다."
     ],
+    "Agent": [
+        "MCP를 활용한 Agent를 이용합니다. 왼쪽 메뉴에서 필요한 MCP를 선택하세요."
+    ],
+    "Agent (Chat)": [
+        "MCP를 활용한 Agent를 이용합니다. 채팅 히스토리를 이용해 interative한 대화를 즐길 수 있습니다."
+    ],    
     "MANUS": [
         "MANUS Agent를 이용해 문제를 해결합니다."
     ]
@@ -43,14 +49,14 @@ with st.sidebar:
     
     # radio selection
     mode = st.radio(
-        label="원하는 대화 형태를 선택하세요. ",options=["일상적인 대화", "MANUS"], index=1
+        label="원하는 대화 형태를 선택하세요. ",options=["일상적인 대화", "Agent", "Agent (Chat)", "MANUS"], index=1
     )   
     st.info(mode_descriptions[mode][0])    
     # print('mode: ', mode)
 
     # mcp selection
     mcp = ""
-    if mode=='MANUS':
+    if mode=='Agent' or mode=='Agent (Chat)' or mode=='MANUS':
         # MCP Config JSON input
         st.subheader("⚙️ MCP Config")
 
@@ -200,13 +206,25 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             st.session_state.messages.append({"role": "assistant", "content": response})
             chat.save_chat_history(prompt, response)
 
+        elif mode == 'Agent':
+            sessionState = ""
+            chat.references = []
+            chat.image_url = []
+            response = chat.run_mcp_agent(prompt, "Disable", st)
+
+        elif mode == 'Agent (Chat)':
+            sessionState = ""
+            chat.references = []
+            chat.image_url = []
+            response = chat.run_mcp_agent(prompt, "Enable", st)
+
         elif mode == 'MANUS':
             # import implementation
             # implementation.write_result("Question: " + prompt)
 
             with st.status("thinking...", expanded=True, state="running") as status:
                 # response = manus.run(prompt)
-                response = chat.run_agent(prompt, "Disable", st)
+                response = chat.run_manus(prompt, "Disable", st)
                 logger.info(f"response: {response}")
 
                 if response.find('<thinking>') != -1:
