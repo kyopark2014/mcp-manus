@@ -36,20 +36,20 @@ logger = logging.getLogger("graph-implementation")
 import utils
 config = utils.load_config()
 
-team_members: list[str]
+mcp_tools: list[str]
 tool_list: list[BaseTool]
 
-def update_team_members(tools: list[BaseTool]):
-    global team_members, tool_list
+def update_mcp_tools(tools: list[BaseTool]):
+    global mcp_tools, tool_list
     tool_list = tools
 
-    team_members = []
+    mcp_tools = []
     for tool in tools:
         name = tool.name
         description = tool.description
         description = description.replace("\n", "")
-        team_members.append(f"{name}: {description}")
-        # logger.info(f"team_members: {team_members}")
+        mcp_tools.append(f"{name}: {description}")
+        # logger.info(f"mcp_tools: {mcp_tools}")
 
 message_queue = Queue()
 def show_info(message: str):
@@ -135,13 +135,13 @@ def Planner(state: State, config: dict) -> dict:
 
     prompt = planner_prompt | llm 
     result = prompt.invoke({
-        "team_members": team_members,
+        "mcp_tools": mcp_tools,
         "input": state
     })
     logger.info(f"Planner: {result.content}")
 
     if "full_plan" in state and state["full_plan"] != "":
-        #show_info(f"{result.content}") # shoe initial plan
+        # show_info(f"{result.content}") # show initial plan
         file = f"artifacts/{request_id}.md"
         with open(file, "a", encoding="utf-8") as f:
             f.write(f"{result.content}\n\n")
@@ -178,7 +178,7 @@ def to_operator(state: State, config: dict) -> str:
 
         file = f"artifacts/{request_id}.md"
         with open(file, "a", encoding="utf-8") as f:
-            f.write(f"# Final Response\n\n{state["final_response"] }\n\n")
+            f.write(f"# Final Response\n\n{state["final_response"]}\n\n")
     else:
         logger.info(f"go to Operator...")
         next = "Operator"
@@ -204,11 +204,13 @@ async def Operator(state: State, config: dict) -> dict:
         ]
     )
 
+    logger.info(f"mcp_tools: {mcp_tools}")
+
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm 
     result = chain.invoke({
         "input": state,
-        "team_members": team_members
+        "mcp_tools": mcp_tools
     })
     logger.info(f"result: {result}")
     
@@ -227,7 +229,7 @@ async def Operator(state: State, config: dict) -> dict:
         logger.error(f"Problematic content: {content}")
         return {
             "messages": [
-                HumanMessage(content="JSON 파싱 오류가 발생했습니다. 다시 시도해주세요.")
+                HumanMessage(content="JSON parsing error occurred. Please try again.")
             ]
         }
 

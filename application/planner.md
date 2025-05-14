@@ -18,7 +18,7 @@ Your planning should follow this tool loop for task completion:
 
 <tool_capabilities>
 This is CRITICAL.
-{team_members}
+{mcp_tools}
 Note: Ensure that each step using Researcher, Coder and Browser completes a full task, as session continuity cannot be preserved.
 </tool_capabilities>
 

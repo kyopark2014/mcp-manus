@@ -807,12 +807,12 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
                 get_tool_info(tools, st)
 
             # langgraph agent
-            implementation.update_team_members(tools)
+            implementation.update_mcp_tools(tools)
                                 
             response = await implementation.run(query)
             logger.info(f"response: {response}")
 
-            # 메시지 큐 처리
+            # message queue
             while not implementation.message_queue.empty():
                 message = implementation.message_queue.get()
                 st.info(message)
