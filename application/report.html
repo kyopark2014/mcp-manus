@@ -89,6 +89,7 @@
         async function loadMarkdown(tabName) {
             try {
                 let request_id = "{request_id}";
+                let sharing_url = "{sharing_url}";
                 let file_name = "";
                 
                 if (tabName === 'report') {
@@ -99,7 +100,7 @@
                     file_name = request_id + '_plan.md';
                 }
                 
-                let url = './' + file_name;
+                let url = sharing_url + '/artifacts/' + file_name;
 
                 const response = await fetch(url);
                 if (!response.ok) {

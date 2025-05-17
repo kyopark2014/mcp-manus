@@ -863,6 +863,7 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
             request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
             template = open(os.path.join(os.path.dirname(__file__), f"report.html")).read()
             template = template.replace("{request_id}", request_id)
+            template = template.replace("{sharing_url}", path)
             key = f"artifacts/{request_id}.html"
             create_object(key, template)
 
