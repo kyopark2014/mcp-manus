@@ -118,19 +118,19 @@
             }
         }
 
-        // 탭 클릭 이벤트 처리
+        // Handle tab click events
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                // 모든 탭에서 active 클래스 제거
+                // Remove active class from all tabs
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                // 클릭된 탭에 active 클래스 추가
+                // Add active class to clicked tab
                 tab.classList.add('active');
-                // 해당 탭의 마크다운 파일 로드
+                // Load markdown file for the selected tab
                 loadMarkdown(tab.dataset.tab);
             });
         });
 
-        // 페이지 로드 시 기본적으로 결과 리포트 로드
+        // Load result report by default when page loads
         window.onload = () => loadMarkdown('report');
     </script>
 </body>
