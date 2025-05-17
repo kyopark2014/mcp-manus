@@ -142,6 +142,11 @@ def Planner(state: State, config: dict) -> dict:
     })
     logger.info(f"Planner: {result.content}")
 
+    # Update the plan into s3
+    key = f"artifacts/{request_id}_plan.md"
+    time = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    chat.updata_object(key, time + result.content, 'prepend')
+
     output = result.content
     if output.find("<status>") != -1:
         status = output.split("<status>")[1].split("</status>")[0]
@@ -150,13 +155,11 @@ def Planner(state: State, config: dict) -> dict:
         if status == "Completed":
             final_response = state["messages"][-1].content
             logger.info(f"final_response: {final_response}")
+
             return {
                 "full_plan": result.content,
                 "final_response": final_response                
             }
-
-    key = f"artifacts/{request_id}_plan.md"
-    chat.updata_object(key, result.content)
 
     return {
         "full_plan": result.content,
@@ -175,7 +178,7 @@ def to_operator(state: State, config: dict) -> str:
 
         key = f"artifacts/{request_id}.md"
         body = f"# Final Response\n\n{state["final_response"]}\n\n"
-        chat.updata_object(key, body)
+        chat.updata_object(key, body, 'append')
 
     else:
         logger.info(f"go to Operator...")
@@ -267,7 +270,7 @@ async def Operator(state: State, config: dict) -> dict:
 
         key = f"artifacts/{request_id}_steps.md"
         body = f"# {task}\n\n{output}\n\n"
-        chat.updata_object(key, body)
+        chat.updata_object(key, body, 'append')
         
         # with open(key, "a", encoding="utf-8") as f:
         #     f.write(body)

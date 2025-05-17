@@ -231,9 +231,22 @@ def create_object(key, body):
         service_name='s3',
         region_name=bedrock_region
     )
-    s3_client.put_object(Bucket=s3_bucket, Key=key, Body=body)
     
-def updata_object(key, body):
+    # Content-Type based on file extension
+    content_type = 'application/octet-stream'  # default value
+    if key.endswith('.html'):
+        content_type = 'text/html'
+    elif key.endswith('.md'):
+        content_type = 'text/markdown'
+    
+    s3_client.put_object(
+        Bucket=s3_bucket,
+        Key=key,
+        Body=body,
+        ContentType=content_type
+    )
+    
+def updata_object(key, body, direction):
     """
     Create an object in S3 and return the URL. If the file already exists, append the new content.
     """
@@ -248,13 +261,29 @@ def updata_object(key, body):
             response = s3_client.get_object(Bucket=s3_bucket, Key=key)
             existing_body = response['Body'].read().decode('utf-8')
             # Append new content to existing content
-            updated_body = existing_body + '\n' + body
+
+            if direction == 'append':
+                updated_body = existing_body + '\n' + body
+            else: # prepend
+                updated_body = body + '\n' + existing_body
         except s3_client.exceptions.NoSuchKey:
             # File doesn't exist, use new body as is
             updated_body = body
             
+        # Content-Type based on file extension
+        content_type = 'application/octet-stream'  # default value
+        if key.endswith('.html'):
+            content_type = 'text/html'
+        elif key.endswith('.md'):
+            content_type = 'text/markdown'
+            
         # Upload the updated content
-        s3_client.put_object(Bucket=s3_bucket, Key=key, Body=updated_body)
+        s3_client.put_object(
+            Bucket=s3_bucket,
+            Key=key,
+            Body=updated_body,
+            ContentType=content_type
+        )
         
     except Exception as e:
         logger.error(f"Error updating object in S3: {str(e)}")
@@ -419,7 +448,10 @@ def create_agent(tools):
         # logger.info(f"state: {state['messages']}")
 
         last_message = state['messages'][-1]
-        content = last_message.content.encode().decode('unicode_escape')
+        if isinstance(last_message.content, list):
+            content = str(last_message.content)
+        else:
+            content = last_message.content.encode().decode('unicode_escape')
         logger.info(f"last message: {content}")
 
         system = (
