@@ -816,11 +816,11 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
             while not implementation.message_queue.empty():
                 message = implementation.message_queue.get()
                 st.info(message)
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": message,
-                    "images": []
-                })
+                # st.session_state.messages.append({
+                #     "role": "assistant", 
+                #     "content": message,
+                #     "images": []
+                # })
 
             st.markdown(response)
 

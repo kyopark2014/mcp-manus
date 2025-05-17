@@ -140,13 +140,13 @@ def Planner(state: State, config: dict) -> dict:
     })
     logger.info(f"Planner: {result.content}")
 
-    if "full_plan" in state and state["full_plan"] != "":
-        # show_info(f"{result.content}") # show initial plan
-        file = f"artifacts/{request_id}.md"
-        with open(file, "a", encoding="utf-8") as f:
-            f.write(f"{result.content}\n\n")
+    # if "full_plan" in state and state["full_plan"] != "":
+    #     # show_info(f"{result.content}") # show initial plan
+    #     file = f"artifacts/steps_{request_id}.md"
+    #     with open(file, "a", encoding="utf-8") as f:
+    #         f.write(f"{result.content}\n\n")
 
-        logger.info(f"Plan saved to {file}")
+    #     logger.info(f"Plan saved to {file}")
 
     output = result.content
     if output.find("<status>") != -1:
@@ -176,7 +176,7 @@ def to_operator(state: State, config: dict) -> str:
         logger.info(f"Finished!!!")
         next = "Reporter"
 
-        file = f"artifacts/{request_id}.md"
+        file = f"artifacts/steps_{request_id}.md"
         with open(file, "a", encoding="utf-8") as f:
             f.write(f"# Final Response\n\n{state["final_response"]}\n\n")
     else:
@@ -192,8 +192,8 @@ async def Operator(state: State, config: dict) -> dict:
     last_state = state["messages"][-1].content
     logger.info(f"last_state: {last_state}")
 
-    last_plan = state["full_plan"]
-    logger.info(f"last_plan: {last_plan}")
+    full_plan = state["full_plan"]
+    logger.info(f"full_plan: {full_plan}")
 
     request_id = config.get("configurable", {}).get("request_id", "")
     prompt_name = "operator"
@@ -203,7 +203,7 @@ async def Operator(state: State, config: dict) -> dict:
 
     human = (
         "<full_plan>{full_plan}</full_plan>\n"
-        "<tools>{tools}</tools>\n"
+        "<tools>{mcp_tools}</tools>\n"
     )
 
     prompt = ChatPromptTemplate.from_messages(
@@ -218,8 +218,8 @@ async def Operator(state: State, config: dict) -> dict:
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm 
     result = chain.invoke({
-        "full_plan": state["full_plan"],
-        "tools": mcp_tools
+        "full_plan": full_plan,
+        "mcp_tools": mcp_tools
     })
     logger.info(f"result: {result}")
     
@@ -267,7 +267,7 @@ async def Operator(state: State, config: dict) -> dict:
         logger.info(f"result: {response["messages"][-1].content}")
         output = response["messages"][-1].content
 
-        file = f"artifacts/{request_id}.md"
+        file = f"artifacts/steps_{request_id}.md"
         with open(file, "a", encoding="utf-8") as f:
             f.write(f"# {task}\n\n{output}\n\n")
         
@@ -278,17 +278,27 @@ async def Operator(state: State, config: dict) -> dict:
             ]
         }
 
-def Reporter(state: State) -> dict:
+def Reporter(state: State, config: dict) -> dict:
     logger.info(f"###### Reporter ######")
 
     prompt_name = "Reporter"
+
+    request_id = config.get("configurable", {}).get("request_id", "")    
+
+    file = f"artifacts/steps_{request_id}.md"
+    with open(file, "r", encoding="utf-8") as f:
+        context = f.read()
 
     system_prompt=get_prompt_template(prompt_name)
     logger.info(f"system_prompt: {system_prompt}")
     
     llm = chat.get_chat(extended_thinking="Disable")
 
-    human = "{messages}"
+    human = (
+        "다음의 context를 바탕으로 사용자의 질문에 대한 답변을 작성합니다.\n"
+        "사용자의 질문: {question}\n"
+        "<context>{context}</context>"
+    )
     reporter_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system_prompt),
@@ -296,15 +306,22 @@ def Reporter(state: State) -> dict:
         ]
     )
 
+    question = state["messages"][0].content
+    logger.info(f"question: {question}")
+
     prompt = reporter_prompt | llm 
     result = prompt.invoke({
-        "messages": state["messages"]
+        "context": context,
+        "question": question
     })
     logger.info(f"result of Reporter: {result}")
 
+    file = f"artifacts/report_{request_id}.md"
+    with open(file, "a", encoding="utf-8") as f:
+        f.write(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n{result.content}\n\n")
+
     return {
-        "report": result.content,
-        "full_plan": state["full_plan"]
+        "report": result.content
     }
 
 agent = ManusAgent(
@@ -325,7 +342,7 @@ async def run(question: str):
     request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     logger.info(f"request_id: {request_id}")
 
-    file = f"artifacts/{request_id}.md"
+    file = f"artifacts/steps_{request_id}.md"
     with open(file, "w", encoding="utf-8") as f:
         f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
