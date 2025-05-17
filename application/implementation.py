@@ -344,7 +344,7 @@ async def run(question: str, request_id: str):
     logger.info(f"request_id: {request_id}")
 
     key = f"artifacts/{request_id}_steps.md"
-    body = "## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    body = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
     chat.create_object(key, body)
         
     inputs = {
