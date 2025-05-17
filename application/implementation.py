@@ -189,13 +189,22 @@ async def Operator(state: State, config: dict) -> dict:
     logger.info(f"###### Operator ######")
     # logger.info(f"state: {state}")
 
+    last_state = state["messages"][-1].content
+    logger.info(f"last_state: {last_state}")
+
+    last_plan = state["full_plan"]
+    logger.info(f"last_plan: {last_plan}")
+
     request_id = config.get("configurable", {}).get("request_id", "")
     prompt_name = "operator"
 
     system = get_prompt_template(prompt_name)
     # logger.info(f"system_prompt: {system}")
 
-    human = "{input}" 
+    human = (
+        "<full_plan>{full_plan}</full_plan>\n"
+        "<tools>{tools}</tools>\n"
+    )
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -209,8 +218,8 @@ async def Operator(state: State, config: dict) -> dict:
     llm = chat.get_chat(extended_thinking="Disable")
     chain = prompt | llm 
     result = chain.invoke({
-        "input": state,
-        "mcp_tools": mcp_tools
+        "full_plan": state["full_plan"],
+        "tools": mcp_tools
     })
     logger.info(f"result: {result}")
     

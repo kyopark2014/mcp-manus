@@ -183,7 +183,8 @@ async def get_total_storage_usage(
 ) -> dict:
     """
     Calculate total storage usage across all S3 buckets
-    
+    Args:
+        region: Name of the aws region
     Returns:
         dict: Dictionary containing total size in bytes, formatted size, and per-bucket breakdown
     """
@@ -289,12 +290,10 @@ async def get_ebs_volumes_usage(
 ) -> Dict:
     """
     Get EBS volumes usage information
-    
     Args:
-        region: AWS region name
+        region: Name of the aws region
         filters: Optional list of filters to apply when retrieving volumes
-                Example: [{'Name': 'status', 'Values': ['available']}]
-    
+                Example: [{'Name': 'status', 'Values': ['available']}]    
     Returns:
         dict: Dictionary containing total EBS storage information and per-volume details
     """
@@ -406,14 +405,12 @@ async def get_ebs_snapshots_usage(
     filters: Optional[List[Dict]] = None
 ) -> Dict:
     """
-    Get EBS snapshots usage information
-    
+    Get EBS snapshots usage information    
     Args:
-        region: AWS region name
+        region: Name of the aws region
         owner_ids: Optional list of AWS account IDs that own the snapshots
         filters: Optional list of filters to apply when retrieving snapshots
-                Example: [{'Name': 'status', 'Values': ['completed']}]
-    
+                Example: [{'Name': 'status', 'Values': ['completed']}]    
     Returns:
         dict: Dictionary containing total EBS snapshots information and per-snapshot details
     """

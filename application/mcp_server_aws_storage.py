@@ -41,6 +41,10 @@ async def list_buckets(
 ) -> List[dict]:
     """
     List S3 buckets using async client with pagination
+    Args:
+        start_after: Start listing after this bucket name
+        max_buckets: Maximum number of buckets to return
+        region: Name of the aws region
     """
     logger.info(f"list_buckets --> start_after: {start_after}, max_buckets: {max_buckets}, region: {region}")
 
@@ -86,7 +90,8 @@ async def get_total_storage_usage(
 ) -> dict:
     """
     Calculate total storage usage across all S3 buckets
-    
+    Args:
+        region: AWS region name
     Returns:
         dict: Dictionary containing total size in bytes, formatted size, and per-bucket breakdown
     """
@@ -99,13 +104,11 @@ async def get_ebs_volumes_usage(
     filters: Optional[List[Dict]] = None
 ) -> Dict:
     """
-    Get EBS volumes usage information
-    
+    Get EBS volumes usage information    
     Args:
         region: AWS region name
         filters: Optional list of filters to apply when retrieving volumes
-                Example: [{'Name': 'status', 'Values': ['available']}]
-    
+                Example: [{'Name': 'status', 'Values': ['available']}]    
     Returns:
         dict: Dictionary containing total EBS storage information and per-volume details
     """
@@ -138,14 +141,12 @@ async def get_efs_usage(
     period_hours: int = 24
 ) -> Dict:
     """
-    Get EFS file systems usage information using CloudWatch metrics
-    
+    Get EFS file systems usage information using CloudWatch metrics    
     Args:
         region: AWS region name
         file_system_ids: Optional list of EFS file system IDs to check
                         If None, all accessible file systems will be checked
-        period_hours: Period in hours to check for metrics (default: 24 hours)
-    
+        period_hours: Period in hours to check for metrics (default: 24 hours)    
     Returns:
         dict: Dictionary containing EFS storage information and per-file-system details
     """
