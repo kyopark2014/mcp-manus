@@ -2,8 +2,6 @@ import sys
 import chat
 import json
 import re
-import random
-import string
 
 from datetime import datetime
 from typing_extensions import TypedDict
@@ -38,6 +36,10 @@ config = utils.load_config()
 
 mcp_tools: list[str]
 tool_list: list[BaseTool]
+
+s3_bucket = config["s3_bucket"] if "s3_bucket" in config else None
+if s3_bucket is None:
+    raise Exception ("No storage!")
 
 def update_mcp_tools(tools: list[BaseTool]):
     global mcp_tools, tool_list
@@ -140,14 +142,6 @@ def Planner(state: State, config: dict) -> dict:
     })
     logger.info(f"Planner: {result.content}")
 
-    # if "full_plan" in state and state["full_plan"] != "":
-    #     # show_info(f"{result.content}") # show initial plan
-    #     file = f"artifacts/steps_{request_id}.md"
-    #     with open(file, "a", encoding="utf-8") as f:
-    #         f.write(f"{result.content}\n\n")
-
-    #     logger.info(f"Plan saved to {file}")
-
     output = result.content
     if output.find("<status>") != -1:
         status = output.split("<status>")[1].split("</status>")[0]
@@ -160,6 +154,9 @@ def Planner(state: State, config: dict) -> dict:
                 "full_plan": result.content,
                 "final_response": final_response                
             }
+
+    key = f"artifacts/{request_id}_plan.md"
+    chat.updata_object(key, result.content)
 
     return {
         "full_plan": result.content,
@@ -176,9 +173,10 @@ def to_operator(state: State, config: dict) -> str:
         logger.info(f"Finished!!!")
         next = "Reporter"
 
-        file = f"artifacts/steps_{request_id}.md"
-        with open(file, "a", encoding="utf-8") as f:
-            f.write(f"# Final Response\n\n{state["final_response"]}\n\n")
+        key = f"artifacts/{request_id}.md"
+        body = f"# Final Response\n\n{state["final_response"]}\n\n"
+        chat.updata_object(key, body)
+
     else:
         logger.info(f"go to Operator...")
         next = "Operator"
@@ -267,9 +265,12 @@ async def Operator(state: State, config: dict) -> dict:
         logger.info(f"result: {response["messages"][-1].content}")
         output = response["messages"][-1].content
 
-        file = f"artifacts/steps_{request_id}.md"
-        with open(file, "a", encoding="utf-8") as f:
-            f.write(f"# {task}\n\n{output}\n\n")
+        key = f"artifacts/{request_id}_steps.md"
+        body = f"# {task}\n\n{output}\n\n"
+        chat.updata_object(key, body)
+        
+        # with open(key, "a", encoding="utf-8") as f:
+        #     f.write(body)
         
         return {
             "messages": [
@@ -284,10 +285,12 @@ def Reporter(state: State, config: dict) -> dict:
     prompt_name = "Reporter"
 
     request_id = config.get("configurable", {}).get("request_id", "")    
+    
+    key = f"artifacts/{request_id}_steps.md"
+    context = chat.get_object(key)
 
-    file = f"artifacts/steps_{request_id}.md"
-    with open(file, "r", encoding="utf-8") as f:
-        context = f.read()
+    # with open(key, "r", encoding="utf-8") as f:
+    #     context = f.read()    
 
     system_prompt=get_prompt_template(prompt_name)
     logger.info(f"system_prompt: {system_prompt}")
@@ -316,9 +319,8 @@ def Reporter(state: State, config: dict) -> dict:
     })
     logger.info(f"result of Reporter: {result}")
 
-    file = f"artifacts/report_{request_id}.md"
-    with open(file, "a", encoding="utf-8") as f:
-        f.write(f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n{result.content}\n\n")
+    key = f"artifacts/{request_id}_report.md"
+    chat.create_object(key, result.content)
 
     return {
         "report": result.content
@@ -338,14 +340,13 @@ agent = ManusAgent(
 
 manus_agent = agent.compile()
 
-async def run(question: str):
-    request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+async def run(question: str, request_id: str):
     logger.info(f"request_id: {request_id}")
 
-    file = f"artifacts/steps_{request_id}.md"
-    with open(file, "w", encoding="utf-8") as f:
-        f.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-
+    key = f"artifacts/{request_id}_steps.md"
+    body = "## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    chat.create_object(key, body)
+        
     inputs = {
         "messages": [HumanMessage(content=question)],
         "final_response": ""

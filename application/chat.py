@@ -8,7 +8,10 @@ import json
 import mcp_client
 import re
 import implementation
-    
+import random
+import string
+import os
+
 from botocore.config import Config
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
@@ -220,7 +223,54 @@ def initiate():
 
 initiate()
 
-def upload_to_s3(file_bytes, file_name):
+def create_object(key, body):
+    """
+    Create an object in S3 and return the URL. If the file already exists, append the new content.
+    """
+    s3_client = boto3.client(
+        service_name='s3',
+        region_name=bedrock_region
+    )
+    s3_client.put_object(Bucket=s3_bucket, Key=key, Body=body)
+    
+def updata_object(key, body):
+    """
+    Create an object in S3 and return the URL. If the file already exists, append the new content.
+    """
+    s3_client = boto3.client(
+        service_name='s3',
+        region_name=bedrock_region
+    )
+    
+    try:
+        # Check if file exists
+        try:
+            response = s3_client.get_object(Bucket=s3_bucket, Key=key)
+            existing_body = response['Body'].read().decode('utf-8')
+            # Append new content to existing content
+            updated_body = existing_body + '\n' + body
+        except s3_client.exceptions.NoSuchKey:
+            # File doesn't exist, use new body as is
+            updated_body = body
+            
+        # Upload the updated content
+        s3_client.put_object(Bucket=s3_bucket, Key=key, Body=updated_body)
+        
+    except Exception as e:
+        logger.error(f"Error updating object in S3: {str(e)}")
+        raise e
+
+def get_object(key):
+    """
+    Get an object from S3 and return the content
+    """
+    s3_client = boto3.client(
+        service_name='s3',
+        region_name=bedrock_region
+    )
+    return s3_client.get_object(Bucket=s3_bucket, Key=key)
+
+def upload_to_s3(file_bytes, key):
     """
     Upload a file to S3 and return the URL
     """
@@ -232,15 +282,15 @@ def upload_to_s3(file_bytes, file_name):
         # Generate a unique file name to avoid collisions
         #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         #unique_id = str(uuid.uuid4())[:8]
-        #s3_key = f"uploaded_images/{timestamp}_{unique_id}_{file_name}"
+        #s3_key = f"uploaded_images/{timestamp}_{unique_id}_{key}"
 
-        content_type = utils.get_contents_type(file_name)       
+        content_type = utils.get_contents_type(key)       
         logger.info(f"content_type: {content_type}") 
 
         if content_type == "image/jpeg" or content_type == "image/png":
-            s3_key = f"{s3_image_prefix}/{file_name}"
+            s3_key = f"{s3_image_prefix}/{key}"
         else:
-            s3_key = f"{s3_prefix}/{file_name}"
+            s3_key = f"{s3_prefix}/{key}"
         
         user_meta = {  # user-defined metadata
             "content_type": content_type,
@@ -257,7 +307,7 @@ def upload_to_s3(file_bytes, file_name):
         logger.info(f"upload response: {response}")
 
         #url = f"https://{s3_bucket}.s3.amazonaws.com/{s3_key}"
-        url = path+'/'+s3_image_prefix+'/'+parse.quote(file_name)
+        url = path+'/'+s3_image_prefix+'/'+parse.quote(key)
         return url
     
     except Exception as e:
@@ -808,8 +858,19 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
 
             # langgraph agent
             implementation.update_mcp_tools(tools)
-                                
-            response = await implementation.run(query)
+
+            # request id
+            request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            template = open(os.path.join(os.path.dirname(__file__), f"report.html")).read()
+            template = template.replace("{request_id}", request_id)
+            key = f"artifacts/{request_id}.html"
+            create_object(key, template)
+
+            report_url = path + "/artifacts/" + request_id + ".html"
+            logger.info(f"report_url: {report_url}")
+            st.info(f"report_url: {report_url}")
+                                            
+            response = await implementation.run(query, request_id)
             logger.info(f"response: {response}")
 
             # message queue
