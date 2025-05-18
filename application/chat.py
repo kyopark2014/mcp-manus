@@ -455,8 +455,8 @@ def create_agent(tools):
             content = last_message.content.encode().decode('unicode_escape')
         logger.info(f"last message: {content}")
         
+        # get image_url from state
         image_url = state['image_url'] if 'image_url' in state else []
-
         if isinstance(content, str) and (content.strip().startswith('{') or content.strip().startswith('[')):
             tool_result = json.loads(content)
             try:                 
@@ -505,11 +505,8 @@ def create_agent(tools):
             logger.info(f"error message: {err_msg}")
             # raise Exception ("Not able to request to LLM")
 
-        if image_url:
-            return {"messages": [response], "image_url": image_url}
-        else:
-            return {"messages": [response]}
-
+        return {"messages": [response], "image_url": image_url}
+        
     def should_continue(state: State) -> Literal["continue", "end"]:
         logger.info(f"###### should_continue ######")
 
@@ -836,11 +833,7 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
                 logger.info(f"response: {response}")
 
                 result = response["messages"][-1].content
-                logger.info(f"result: {result}") 
-
-                if "image_url" in response:
-                    image_url = response["image_url"]
-                    logger.info(f"image_url: {image_url}")
+                # logger.info(f"result: {result}") 
 
                 debug_msgs = get_debug_messages()
                 for msg in debug_msgs:
@@ -849,6 +842,12 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
                         st.image(msg["image"])
                     elif "text" in msg:
                         st.info(msg["text"])
+
+                image_url = response["image_url"] if "image_url" in response else []
+                logger.info(f"image_url: {image_url}")
+
+                for image in image_url:
+                    st.image(image)
 
                 #logger.info(f"references: {references}")
                 #image_url, references = show_status_message(response["messages"], st)     
