@@ -442,6 +442,7 @@ def create_agent(tools):
 
     class State(TypedDict):
         messages: Annotated[list, add_messages]
+        image_url: list
 
     def call_model(state: State, config):
         logger.info(f"###### call_model ######")
@@ -453,6 +454,29 @@ def create_agent(tools):
         else:
             content = last_message.content.encode().decode('unicode_escape')
         logger.info(f"last message: {content}")
+        
+        image_url = state['image_url'] if 'image_url' in state else []
+
+        if isinstance(content, str) and (content.strip().startswith('{') or content.strip().startswith('[')):
+            tool_result = json.loads(content)
+            try:                 
+                if "path" in tool_result:
+                    logger.info(f"path: {tool_result['path']}")
+
+                    path = tool_result['path']
+                    if isinstance(path, list):
+                        for p in path:
+                            logger.info(f"image: {p}")
+                            if p.startswith('http') or p.startswith('https'):
+                                image_url.append(p)
+                    else:
+                        logger.info(f"image: {path}")
+                        if path.startswith('http') or path.startswith('https'):
+                            image_url.append(path)
+            except Exception as e:
+                logger.error(f"error: {str(e)}")
+        if image_url:
+            logger.info(f"image_url: {image_url}")
 
         system = (
             "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
@@ -481,7 +505,10 @@ def create_agent(tools):
             logger.info(f"error message: {err_msg}")
             # raise Exception ("Not able to request to LLM")
 
-        return {"messages": [response]}
+        if image_url:
+            return {"messages": [response], "image_url": image_url}
+        else:
+            return {"messages": [response]}
 
     def should_continue(state: State) -> Literal["continue", "end"]:
         logger.info(f"###### should_continue ######")
@@ -496,7 +523,7 @@ def create_agent(tools):
         else:
             logger.info(f"--- END ---")
             return "end"
-
+    
     def buildChatAgent():
         workflow = StateGraph(State)
 
@@ -512,7 +539,6 @@ def create_agent(tools):
             },
         )
         workflow.add_edge("action", "agent")
-
         return workflow.compile() 
 
     app = buildChatAgent()
@@ -810,7 +836,11 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
                 logger.info(f"response: {response}")
 
                 result = response["messages"][-1].content
-                # logger.info(f"result: {result}")
+                logger.info(f"result: {result}") 
+
+                if "image_url" in response:
+                    image_url = response["image_url"]
+                    logger.info(f"image_url: {image_url}")
 
                 debug_msgs = get_debug_messages()
                 for msg in debug_msgs:

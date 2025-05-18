@@ -75,14 +75,29 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+        /* table style */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="tabs" role="tablist">
-            <div class="tab active" data-tab="plan" role="tab" aria-selected="false" aria-controls="plan-content">계획</div>
+            <div class="tab active" data-tab="plan" role="tab" aria-selected="true" aria-controls="plan-content">계획</div>
             <div class="tab" data-tab="steps" role="tab" aria-selected="false" aria-controls="steps-content">단계별 실행 결과</div>
-            <div class="tab" data-tab="report" role="tab" aria-selected="true" aria-controls="report-content">결과 리포트</div>
+            <div class="tab" data-tab="report" role="tab" aria-selected="false" aria-controls="report-content">결과 리포트</div>
         </div>
         <div id="markdown-content" role="tabpanel"></div>
     </div>
@@ -121,8 +136,8 @@
 
                 const response = await fetch(url);
                 if (!response.ok) {
-                    if (response.status === 404) {
-                        document.getElementById('markdown-content').innerHTML = '<p>파일이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.</p>';
+                    if (response.status === 404 || response.status === 403) {
+                        document.getElementById('markdown-content').innerHTML = '<p>파일이 아직 준비되지 않았습니다. 잠시후 재시도 해주세요...</p>';
                         return;
                     }
                     throw new Error(`HTTP 오류! 상태 코드: ${response.status}`);
@@ -153,7 +168,7 @@
         });
 
         // Load result report by default when page loads
-        window.onload = () => loadMarkdown('report');
+        window.onload = () => loadMarkdown('plan');
     </script>
 </body>
 </html>

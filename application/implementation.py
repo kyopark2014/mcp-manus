@@ -263,14 +263,26 @@ async def Operator(state: State, config: dict) -> dict:
 
         messages = [HumanMessage(content=json.dumps(task))]
         response = await agent.ainvoke({"messages": messages}, config)
-        # logger.info(f"response of Operator: {response}")
+        logger.info(f"response of Operator: {response}")
 
-        logger.info(f"result: {response["messages"][-1].content}")
-        output = response["messages"][-1].content
+        output_text = response["messages"][-1].content
+        logger.info(f"output_text: {output_text}")
+
+        if "image_url" in response:
+            image_url = response["image_url"]
+            logger.info(f"image_url: {image_url}")
+
+            output_images = ""
+            for url in image_url:
+                output_images += f"![{task}]({url})\n\n"
+            body = f"# {task}\n\n{output_text}\n\n{output_images}"
+        else:
+            body = f"# {task}\n\n{output_text}\n\n"
 
         key = f"artifacts/{request_id}_steps.md"
-        body = f"# {task}\n\n{output}\n\n"
-        chat.updata_object(key, body, 'append')
+        time = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        
+        chat.updata_object(key, time + body, 'append')
         
         # with open(key, "a", encoding="utf-8") as f:
         #     f.write(body)
@@ -278,7 +290,7 @@ async def Operator(state: State, config: dict) -> dict:
         return {
             "messages": [
                 HumanMessage(content=json.dumps(task)),
-                AIMessage(content=output)
+                AIMessage(content=body)
             ]
         }
 
@@ -292,17 +304,16 @@ def Reporter(state: State, config: dict) -> dict:
     key = f"artifacts/{request_id}_steps.md"
     context = chat.get_object(key)
 
-    # with open(key, "r", encoding="utf-8") as f:
-    #     context = f.read()    
+    logger.info(f"context: {context}")
 
     system_prompt=get_prompt_template(prompt_name)
-    logger.info(f"system_prompt: {system_prompt}")
+    # logger.info(f"system_prompt: {system_prompt}")
     
     llm = chat.get_chat(extended_thinking="Disable")
 
     human = (
         "다음의 context를 바탕으로 사용자의 질문에 대한 답변을 작성합니다.\n"
-        "사용자의 질문: {question}\n"
+        "<question>{question}</question>\n"
         "<context>{context}</context>"
     )
     reporter_prompt = ChatPromptTemplate.from_messages(
@@ -338,17 +349,13 @@ agent = ManusAgent(
         ("to_planner", to_planner),
         ("to_operator", to_operator),
         ("Reporter", Reporter),
-    ],
+    ]
 )
 
 manus_agent = agent.compile()
 
 async def run(question: str, request_id: str):
     logger.info(f"request_id: {request_id}")
-
-    key = f"artifacts/{request_id}_steps.md"
-    body = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-    chat.create_object(key, body)
         
     inputs = {
         "messages": [HumanMessage(content=question)],
