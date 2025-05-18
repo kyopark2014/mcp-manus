@@ -297,7 +297,8 @@ def get_object(key):
         service_name='s3',
         region_name=bedrock_region
     )
-    return s3_client.get_object(Bucket=s3_bucket, Key=key)
+    response = s3_client.get_object(Bucket=s3_bucket, Key=key)
+    return response['Body'].read().decode('utf-8')
 
 def upload_to_s3(file_bytes, key):
     """
