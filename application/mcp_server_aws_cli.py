@@ -370,6 +370,96 @@ def delete_bucket(bucket_name: str, region: str = "us-west-2") -> str:
         logger.error(error_message)
         return error_message
 
+@mcp.tool()    
+def execute_bash(command: str) -> str:
+    """
+    Execute a bash command and return the result.
+    
+    Args:
+        command: The bash command to execute (e.g., 'aws configure')
+    
+    Returns:
+        Command output as string
+    """
+    logger.info(f"execute_bash --> command: {command}")
+    
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            error_message = f"Command execution error: {result.stderr}"
+            logger.error(error_message)
+            return error_message
+        return result.stdout
+    except Exception as e:
+        error_message = f"Error executing command: {str(e)}"
+        logger.error(error_message)
+        return error_message
+
+@mcp.tool()    
+def use_aws(command: str, region: str = "us-west-2") -> str:
+    """
+    Execute common AWS CLI commands with simplified interface.
+    
+    Args:
+        command: AWS CLI command to execute. Supported commands:
+            - list-buckets: List all S3 buckets
+            - describe-instances: List all EC2 instances
+            - describe-regions: List all available AWS regions
+            - get-caller-identity: Get current AWS account information
+            - list-secrets: List all secrets in AWS Secrets Manager
+            - list-stacks: List all CloudFormation stacks
+            - list-functions: List all Lambda functions
+            - list-events: List all CloudWatch Events rules
+            - list-tables: List all DynamoDB tables
+            - list-queues: List all SQS queues
+            - list-topics: List all SNS topics
+            - list-subscribers: List all SNS subscribers
+            - list-subscriptions: List all SNS subscriptions
+            - list-agents: List all SageMaker agents
+            - list-knowledge-bases: List all Bedrock knowledge bases
+        region: AWS region (e.g., 'us-west-2'). Default is us-west-2.
+    
+    Returns:
+        Command output as string
+    """
+    logger.info(f"use_aws --> command: {command}, region: {region}")
+    
+    # Map commands to their full AWS CLI equivalents
+    command_map = {
+        "list-buckets": f"aws s3api list-buckets --region {region}",
+        "describe-instances": f"aws ec2 describe-instances --region {region}",
+        "describe-regions": f"aws ec2 describe-regions --region {region}",
+        "get-caller-identity": "aws sts get-caller-identity",
+        "list-secrets": f"aws secretsmanager list-secrets --region {region}",
+        "list-stacks": f"aws cloudformation list-stacks --region {region}",
+        "list-functions": f"aws lambda list-functions --region {region}",
+        "list-events": f"aws events list-rules --region {region}",
+        "list-tables": f"aws dynamodb list-tables --region {region}",
+        "list-queues": f"aws sqs list-queues --region {region}",
+        "list-topics": f"aws sns list-topics --region {region}",
+        "list-subscribers": f"aws sns list-subscriptions --region {region}",
+        "list-subscriptions": f"aws sns list-subscriptions --region {region}",
+        "list-agents": f"aws sagemaker list-endpoints --region {region}",
+        "list-knowledge-bases": f"aws bedrock list-knowledge-bases --region {region}"
+    }
+    
+    if command not in command_map:
+        error_message = f"Unsupported command: {command}. Supported commands are: {', '.join(command_map.keys())}"
+        logger.error(error_message)
+        return error_message
+    
+    try:
+        result = subprocess.run(command_map[command], shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            error_message = f"Command execution error: {result.stderr}"
+            logger.error(error_message)
+            return error_message
+        return result.stdout
+    except Exception as e:
+        error_message = f"Error executing AWS command: {str(e)}"
+        logger.error(error_message)
+        return error_message
+
 if __name__ =="__main__":
     print(f"###### main ######")
     mcp.run(transport="stdio")

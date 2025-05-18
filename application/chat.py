@@ -449,18 +449,14 @@ def create_agent(tools):
         logger.info(f"###### call_model ######")
         # logger.info(f"state: {state['messages']}")
 
-        last_message = state['messages'][-1]
-        if isinstance(last_message.content, list):
-            content = str(last_message.content)
-        else:
-            content = last_message.content.encode().decode('unicode_escape')
-        logger.info(f"last message: {content}")
+        last_message = state['messages'][-1].content
+        logger.info(f"last message: {last_message}")
         
         # get image_url from state
         image_url = state['image_url'] if 'image_url' in state else []
-        if isinstance(content, str) and (content.strip().startswith('{') or content.strip().startswith('[')):
-            tool_result = json.loads(content)
+        if isinstance(last_message, str) and (last_message.strip().startswith('{') or last_message.strip().startswith('[')):
             try:                 
+                tool_result = json.loads(last_message)
                 if "path" in tool_result:
                     logger.info(f"path: {tool_result['path']}")
 
@@ -474,8 +470,8 @@ def create_agent(tools):
                         logger.info(f"image: {path}")
                         if path.startswith('http') or path.startswith('https'):
                             image_url.append(path)
-            except Exception as e:
-                logger.error(f"error: {str(e)}")
+            except json.JSONDecodeError:
+                tool_result = last_message
         if image_url:
             logger.info(f"image_url: {image_url}")
 
@@ -496,8 +492,7 @@ def create_agent(tools):
             chain = prompt | model
                 
             response = chain.invoke(state["messages"])
-            # logger.info(f"call_model response: {response}")
-            logger.info(f"call_model: {response.content}")
+            logger.info(f"call_model: {response}")
 
         except Exception:
             response = AIMessage(content="답변을 찾지 못하였습니다.")
@@ -517,6 +512,10 @@ def create_agent(tools):
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
             tool_name = last_message.tool_calls[-1]['name']
             logger.info(f"--- CONTINUE: {tool_name} ---")
+
+            if debug_mode == "Enable":
+                status_messages(last_message)
+                
             return "continue"
         else:
             logger.info(f"--- END ---")

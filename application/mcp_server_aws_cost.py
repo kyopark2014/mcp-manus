@@ -57,10 +57,10 @@ def get_region_cost(days: int=30, region: str='us-west-2'):
 @mcp.tool()
 def get_service_cost(start_date: str, end_date: str, granularity: str = "MONTHLY", region: str="us-west-2"):
     """
-    Get AWS service cost data
+    Get AWS service cost data.
     Parameters:
         start_date: Start date in YYYY-MM-DD format
-        end_date: End date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format. It is only possible up to 14 months prior to the present. 
         granularity: Granularity of the cost data (DAILY, MONTHLY, HOURLY)
         region: The region of aws infrastructure, e.g., us-west-2
     Returns:
