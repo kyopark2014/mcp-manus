@@ -11,6 +11,9 @@ import implementation
 import random
 import string
 import os
+import PyPDF2
+import csv
+import base64
 
 from botocore.config import Config
 from langchain_aws import ChatBedrock
@@ -22,6 +25,8 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from io import BytesIO
 from PIL import Image
 from urllib import parse
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.docstore.document import Document
 
 import logging
 import sys
@@ -42,6 +47,11 @@ number_of_models = len(models)
 model_id = models[0]["model_id"]
 debug_mode = "Enable"
 multi_region = "Disable"
+
+s3_prefix = 'docs'
+s3_image_prefix = 'images'
+
+doc_prefix = s3_prefix+'/'
 
 models = info.get_model_info(model_name)
 reasoning_mode = 'Disable'
@@ -222,6 +232,378 @@ def initiate():
         map_chain[userId] = memory_chain
 
 initiate()
+
+def isKorean(text):
+    # check korean
+    pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+')
+    word_kor = pattern_hangul.search(str(text))
+    # print('word_kor: ', word_kor)
+
+    if word_kor and word_kor != 'None':
+        # logger.info(f"Korean: {word_kor}")
+        return True
+    else:
+        # logger.info(f"Not Korean:: {word_kor}")
+        return False
+    
+# load csv documents from s3
+def load_csv_document(s3_file_name):
+    s3r = boto3.resource("s3")
+    doc = s3r.Object(s3_bucket, s3_prefix+'/'+s3_file_name)
+
+    lines = doc.get()['Body'].read().decode('utf-8').split('\n')   # read csv per line
+    logger.info(f"prelinspare: {len(lines)}")
+        
+    columns = lines[0].split(',')  # get columns
+    #columns = ["Category", "Information"]  
+    #columns_to_metadata = ["type","Source"]
+    logger.info(f"columns: {columns}")
+    
+    docs = []
+    n = 0
+    for row in csv.DictReader(lines, delimiter=',',quotechar='"'):
+        # print('row: ', row)
+        #to_metadata = {col: row[col] for col in columns_to_metadata if col in row}
+        values = {k: row[k] for k in columns if k in row}
+        content = "\n".join(f"{k.strip()}: {v.strip()}" for k, v in values.items())
+        doc = Document(
+            page_content=content,
+            metadata={
+                'name': s3_file_name,
+                'row': n+1,
+            }
+            #metadata=to_metadata
+        )
+        docs.append(doc)
+        n = n+1
+    logger.info(f"docs[0]: {docs[0]}")
+
+    return docs
+
+def get_summary(docs):    
+    llm = get_chat(extended_thinking="Disable")
+
+    text = ""
+    for doc in docs:
+        text = text + doc
+    
+    if isKorean(text)==True:
+        system = (
+            "다음의 <article> tag안의 문장을 요약해서 500자 이내로 설명하세오."
+        )
+    else: 
+        system = (
+            "Here is pieces of article, contained in <article> tags. Write a concise summary within 500 characters."
+        )
+    
+    human = "<article>{text}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    # print('prompt: ', prompt)
+    
+    chain = prompt | llm    
+    try: 
+        result = chain.invoke(
+            {
+                "text": text
+            }
+        )
+        
+        summary = result.content
+        logger.info(f"esult of summarization: {summary}")
+    except Exception:
+        err_msg = traceback.format_exc()
+        logger.info(f"error message: {err_msg}") 
+        raise Exception ("Not able to request to LLM")
+    
+    return summary
+
+# load documents from s3 for pdf and txt
+def load_document(file_type, s3_file_name):
+    s3r = boto3.resource("s3")
+    doc = s3r.Object(s3_bucket, s3_prefix+'/'+s3_file_name)
+    logger.info(f"s3_bucket: {s3_bucket}, s3_prefix: {s3_prefix}, s3_file_name: {s3_file_name}")
+    
+    contents = ""
+    if file_type == 'pdf':
+        contents = doc.get()['Body'].read()
+        reader = PyPDF2.PdfReader(BytesIO(contents))
+        
+        raw_text = []
+        for page in reader.pages:
+            raw_text.append(page.extract_text())
+        contents = '\n'.join(raw_text)    
+        
+    elif file_type == 'txt' or file_type == 'md':        
+        contents = doc.get()['Body'].read().decode('utf-8')
+        
+    logger.info(f"contents: {contents}")
+    new_contents = str(contents).replace("\n"," ") 
+    logger.info(f"length: {len(new_contents)}")
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=100,
+        separators=["\n\n", "\n", ".", " ", ""],
+        length_function = len,
+    ) 
+    texts = text_splitter.split_text(new_contents) 
+    if texts:
+        logger.info(f"exts[0]: {texts[0]}")
+    
+    return texts
+
+def summary_of_code(code, mode):
+    if mode == 'py':
+        system = (
+            "다음의 <article> tag에는 python code가 있습니다."
+            "code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    elif mode == 'js':
+        system = (
+            "다음의 <article> tag에는 node.js code가 있습니다." 
+            "code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    else:
+        system = (
+            "다음의 <article> tag에는 code가 있습니다."
+            "code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    
+    human = "<article>{code}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    # print('prompt: ', prompt)
+    
+    llm = get_chat(extended_thinking="Disable")
+
+    chain = prompt | llm    
+    try: 
+        result = chain.invoke(
+            {
+                "code": code
+            }
+        )
+        
+        summary = result.content
+        logger.info(f"result of code summarization: {summary}")
+    except Exception:
+        err_msg = traceback.format_exc()
+        logger.info(f"error message: {err_msg}")        
+        raise Exception ("Not able to request to LLM")
+    
+    return summary
+
+def summary_image(img_base64, instruction):      
+    llm = get_chat(extended_thinking="Disable")
+
+    if instruction:
+        logger.info(f"instruction: {instruction}")
+        query = f"{instruction}. <result> tag를 붙여주세요."
+        
+    else:
+        query = "이미지가 의미하는 내용을 풀어서 자세히 알려주세요. markdown 포맷으로 답변을 작성합니다."
+    
+    messages = [
+        HumanMessage(
+            content=[
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{img_base64}", 
+                    },
+                },
+                {
+                    "type": "text", "text": query
+                },
+            ]
+        )
+    ]
+    
+    for attempt in range(5):
+        logger.info(f"attempt: {attempt}")
+        try: 
+            result = llm.invoke(messages)
+            
+            extracted_text = result.content
+            # print('summary from an image: ', extracted_text)
+            break
+        except Exception:
+            err_msg = traceback.format_exc()
+            logger.info(f"error message: {err_msg}")                    
+            raise Exception ("Not able to request to LLM")
+        
+    return extracted_text
+
+def extract_text(img_base64):    
+    multimodal = get_chat(extended_thinking="Disable")
+    query = "텍스트를 추출해서 markdown 포맷으로 변환하세요. <result> tag를 붙여주세요."
+    
+    extracted_text = ""
+    messages = [
+        HumanMessage(
+            content=[
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{img_base64}", 
+                    },
+                },
+                {
+                    "type": "text", "text": query
+                },
+            ]
+        )
+    ]
+    
+    for attempt in range(5):
+        logger.info(f"attempt: {attempt}")
+        try: 
+            result = multimodal.invoke(messages)
+            
+            extracted_text = result.content
+            # print('result of text extraction from an image: ', extracted_text)
+            break
+        except Exception:
+            err_msg = traceback.format_exc()
+            logger.info(f"error message: {err_msg}")                    
+            # raise Exception ("Not able to request to LLM")
+    
+    logger.info(f"xtracted_text: {extracted_text}")
+    if len(extracted_text)<10:
+        extracted_text = "텍스트를 추출하지 못하였습니다."    
+
+    return extracted_text
+
+fileId = uuid.uuid4().hex
+# print('fileId: ', fileId)
+def get_summary_of_uploaded_file(file_name, st):
+    file_type = file_name[file_name.rfind('.')+1:len(file_name)]            
+    logger.info(f"file_type: {file_type}")
+    
+    if file_type == 'csv':
+        docs = load_csv_document(file_name)
+        contexts = []
+        for doc in docs:
+            contexts.append(doc.page_content)
+        logger.info(f"contexts: {contexts}")
+    
+        msg = get_summary(contexts)
+
+    elif file_type == 'pdf' or file_type == 'txt' or file_type == 'md' or file_type == 'pptx' or file_type == 'docx':
+        texts = load_document(file_type, file_name)
+
+        if len(texts):
+            docs = []
+            for i in range(len(texts)):
+                docs.append(
+                    Document(
+                        page_content=texts[i],
+                        metadata={
+                            'name': file_name,
+                            # 'page':i+1,
+                            'url': path+'/'+doc_prefix+parse.quote(file_name)
+                        }
+                    )
+                )
+            logger.info(f"docs[0]: {docs[0]}") 
+            logger.info(f"docs size: {len(docs)}")
+
+            contexts = []
+            for doc in docs:
+                contexts.append(doc.page_content)
+            logger.info(f"contexts: {contexts}")
+
+            msg = get_summary(contexts)
+        else:
+            msg = "문서 로딩에 실패하였습니다."
+        
+    elif file_type == 'py' or file_type == 'js':
+        s3r = boto3.resource("s3")
+        doc = s3r.Object(s3_bucket, s3_prefix+'/'+file_name)
+        
+        contents = doc.get()['Body'].read().decode('utf-8')
+        
+        #contents = load_code(file_type, object)                
+                        
+        msg = summary_of_code(contents, file_type)                  
+        
+    elif file_type == 'png' or file_type == 'jpeg' or file_type == 'jpg':
+        logger.info(f"multimodal: {file_name}")
+        
+        s3_client = boto3.client(
+            service_name='s3',
+            region_name=bedrock_region
+        )             
+        if debug_mode=="Enable":
+            status = "이미지를 가져옵니다."
+            logger.info(f"status: {status}")
+            st.info(status)
+            
+        image_obj = s3_client.get_object(Bucket=s3_bucket, Key=s3_prefix+'/'+file_name)
+        # print('image_obj: ', image_obj)
+        
+        image_content = image_obj['Body'].read()
+        img = Image.open(BytesIO(image_content))
+        
+        width, height = img.size 
+        logger.info(f"width: {width}, height: {height}, size: {width*height}")
+        
+        isResized = False
+        while(width*height > 5242880):                    
+            width = int(width/2)
+            height = int(height/2)
+            isResized = True
+            logger.info(f"width: {width}, height: {height}, size: {width*height}")
+        
+        if isResized:
+            img = img.resize((width, height))
+        
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+               
+        # extract text from the image
+        if debug_mode=="Enable":
+            status = "이미지에서 텍스트를 추출합니다."
+            logger.info(f"status: {status}")
+            st.info(status)
+        
+        text = extract_text(img_base64)
+        # print('extracted text: ', text)
+
+        if text.find('<result>') != -1:
+            extracted_text = text[text.find('<result>')+8:text.find('</result>')] # remove <result> tag
+            # print('extracted_text: ', extracted_text)
+        else:
+            extracted_text = text
+
+        if debug_mode=="Enable":
+            logger.info(f"### 추출된 텍스트\n\n{extracted_text}")
+            print('status: ', status)
+            st.info(status)
+    
+        if debug_mode=="Enable":
+            status = "이미지의 내용을 분석합니다."
+            logger.info(f"status: {status}")
+            st.info(status)
+
+        image_summary = summary_image(img_base64, "")
+        logger.info(f"image summary: {image_summary}")
+            
+        if len(extracted_text) > 10:
+            contents = f"## 이미지 분석\n\n{image_summary}\n\n## 추출된 텍스트\n\n{extracted_text}"
+        else:
+            contents = f"## 이미지 분석\n\n{image_summary}"
+        logger.info(f"image content: {contents}")
+
+        msg = contents
+
+    global fileId
+    fileId = uuid.uuid4().hex
+    # print('fileId: ', fileId)
+
+    return msg
 
 def create_object(key, body):
     """
@@ -618,9 +1000,110 @@ def push_debug_messages(type, contents):
 image_url = []
 references = []
 
-def status_messages(message):
-    global image_url, references
+def extract_reference(response):
+    references = []
+    for i, re in enumerate(response):
+        logger.info(f"message[{i}]: {re}")
 
+        if i==len(response)-1:
+            break
+
+        if isinstance(re, ToolMessage):            
+            try: 
+                # tavily
+                if isinstance(re.content, str) and "Title:" in re.content and "URL:" in re.content and "Content:" in re.content:
+                    logger.info("Tavily parsing...")                    
+                    items = re.content.split("\n\n")
+                    for i, item in enumerate(items):
+                        logger.info(f"item[{i}]: {item}")
+                        if "Title:" in item and "URL:" in item and "Content:" in item:
+                            try:
+                                # 정규식 대신 문자열 분할 방법 사용
+                                title_part = item.split("Title:")[1].split("URL:")[0].strip()
+                                url_part = item.split("URL:")[1].split("Content:")[0].strip()
+                                content_part = item.split("Content:")[1].strip()
+                                
+                                logger.info(f"title_part: {title_part}")
+                                logger.info(f"url_part: {url_part}")
+                                logger.info(f"content_part: {content_part}")
+                                
+                                references.append({
+                                    "url": url_part,
+                                    "title": title_part,
+                                    "content": content_part[:100] + "..." if len(content_part) > 100 else content_part
+                                })
+                            except Exception as e:
+                                logger.info(f"파싱 오류: {str(e)}")
+                                continue
+                
+                # check json format
+                if isinstance(re.content, str) and (re.content.strip().startswith('{') or re.content.strip().startswith('[')):
+                    tool_result = json.loads(re.content)
+                    logger.info(f"tool_result: {tool_result}")
+                else:
+                    tool_result = re.content
+                    logger.info(f"tool_result (not JSON): {tool_result}")
+
+                # ArXiv
+                if "papers" in tool_result:
+                    logger.info(f"size of papers: {len(tool_result['papers'])}")
+
+                    papers = tool_result['papers']
+                    for paper in papers:
+                        url = paper['url']
+                        title = paper['title']
+                        content = paper['abstract'][:100]
+                        logger.info(f"url: {url}, title: {title}, content: {content}")
+
+                        references.append({
+                            "url": url,
+                            "title": title,
+                            "content": content
+                        })
+                                
+                if isinstance(tool_result, list):
+                    logger.info(f"size of tool_result: {len(tool_result)}")
+                    for i, item in enumerate(tool_result):
+                        logger.info(f'item[{i}]: {item}')
+                        
+                        # RAG
+                        if "reference" in item:
+                            logger.info(f"reference: {item['reference']}")
+
+                            infos = item['reference']
+                            url = infos['url']
+                            title = infos['title']
+                            source = infos['from']
+                            logger.info(f"url: {url}, title: {title}, source: {source}")
+
+                            references.append({
+                                "url": url,
+                                "title": title,
+                                "content": item['contents'][:100]
+                            })
+
+                        # Others               
+                        if isinstance(item, str):
+                            try:
+                                item = json.loads(item)
+
+                                # AWS Document
+                                if "rank_order" in item:
+                                    references.append({
+                                        "url": item['url'],
+                                        "title": item['title'],
+                                        "content": item['context'][:100]
+                                    })
+                            except json.JSONDecodeError:
+                                logger.info(f"JSON parsing error: {item}")
+                                continue
+
+            except:
+                logger.info(f"fail to parsing..")
+                pass
+    return references
+
+def status_messages(message):
     # type of message
     if isinstance(message, AIMessage):
         logger.info(f"status_messages (AIMessage): {message}")
@@ -666,130 +1149,6 @@ def status_messages(message):
 
             logger.info(f"status: {status}")
             push_debug_messages("text", status)
-        try: 
-            # Parse Tavily search results
-            if isinstance(message.content, str) and "Title:" in message.content and "URL:" in message.content and "Content:" in message.content:
-                logger.info("Tavily parsing...")                    
-                items = message.content.split("\n\n")
-                for i, item in enumerate(items):
-                    logger.info(f"item[{i}]: {item}")
-                    if "Title:" in item and "URL:" in item and "Content:" in item:
-                        try:
-                            # Use string splitting instead of regex
-                            title_part = item.split("Title:")[1].split("URL:")[0].strip()
-                            url_part = item.split("URL:")[1].split("Content:")[0].strip()
-                            content_part = item.split("Content:")[1].strip()
-                            
-                            logger.info(f"title_part: {title_part}")
-                            logger.info(f"url_part: {url_part}")
-                            logger.info(f"content_part: {content_part}")
-                            
-                            references.append({
-                                "url": url_part,
-                                "title": title_part,
-                                "content": content_part[:100] + "..." if len(content_part) > 100 else content_part
-                            })
-                        except Exception as e:
-                            logger.info(f"Parsing error: {str(e)}")
-                            continue
-            logger.info(f"references: {references}")
-            
-            # Check JSON format
-            if isinstance(message.content, str) and (message.content.strip().startswith('{') or message.content.strip().startswith('[')):
-                tool_result = json.loads(message.content)
-                logger.info(f"tool_result: {tool_result}")
-            else:
-                tool_result = message.content
-                logger.info(f"tool_result (not JSON): {tool_result}")
-
-            if "path" in tool_result:
-                logger.info(f"Path: {tool_result['path']}")
-
-                path = tool_result['path']
-                if isinstance(path, list):
-                    for p in path:
-                        logger.info(f"image: {p}")
-                        if p.startswith('http') or p.startswith('https'):
-                            push_debug_messages("image", p)
-                            image_url.append(p)
-                        else:
-                            with open(p, 'rb') as f:
-                                image_data = f.read()
-                                push_debug_messages("image", image_data)
-                                image_url.append(p)
-                else:
-                    logger.info(f"image: {path}")
-                    try:
-                        if path.startswith('http') or path.startswith('https'):
-                            push_debug_messages("image", path)
-                            image_url.append(path)
-                        else:
-                            with open(path, 'rb') as f:
-                                image_data = f.read()
-                                push_debug_messages("image", image_data)
-                                image_url.append(path)
-                    except Exception as e:
-                        logger.error(f"Image display error: {str(e)}")
-                        status = f"Cannot display image: {str(e)}"
-                        push_debug_messages("text", image_data)
-
-            # Parse ArXiv papers
-            if "papers" in tool_result:
-                logger.info(f"size of papers: {len(tool_result['papers'])}")
-
-                papers = tool_result['papers']
-                for paper in papers:
-                    url = paper['url']
-                    title = paper['title']
-                    content = paper['abstract'][:100]
-                    logger.info(f"url: {url}, title: {title}, content: {content}")
-
-                    references.append({
-                        "url": url,
-                        "title": title,
-                        "content": content
-                    })
-                            
-            if isinstance(tool_result, list):
-                logger.info(f"size of tool_result: {len(tool_result)}")
-                for i, item in enumerate(tool_result):
-                    logger.info(f'item[{i}]: {item}')
-                    
-                    # Parse RAG references
-                    if "reference" in item:
-                        logger.info(f"reference: {item['reference']}")
-
-                        infos = item['reference']
-                        url = infos['url']
-                        title = infos['title']
-                        source = infos['from']
-                        logger.info(f"url: {url}, title: {title}, source: {source}")
-
-                        references.append({
-                            "url": url,
-                            "title": title,
-                            "content": item['contents'][:100]
-                        })
-
-                    # Parse other types of references
-                    if isinstance(item, str):
-                        try:
-                            item = json.loads(item)
-
-                            # Parse AWS Document references
-                            if "rank_order" in item:
-                                references.append({
-                                    "url": item['url'],
-                                    "title": item['title'],
-                                    "content": item['context'][:100]
-                                })
-                        except json.JSONDecodeError:
-                            logger.info(f"JSON parsing error: {item}")
-                            continue
-
-        except:
-            logger.info(f"Failed to parse message")
-            pass
 
 def extract_thinking_tag(response, st):
     if response.find('<thinking>') != -1:
@@ -849,9 +1208,8 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
                 for image in image_url:
                     st.image(image)
 
-                #logger.info(f"references: {references}")
-                #image_url, references = show_status_message(response["messages"], st)     
-                
+                references = extract_reference(response["messages"])
+
                 if references:
                     ref = "\n\n### Reference\n"
                 for i, reference in enumerate(references):
@@ -933,7 +1291,7 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
             st.info(f"report_url: {report_url}")
                                             
             response = await implementation.run(query, request_id)
-            logger.info(f"response: {response}")
+            logger.info(f"response: {response["messages"]}")
 
             # message queue
             while not implementation.message_queue.empty():
@@ -944,6 +1302,16 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
                 #     "content": message,
                 #     "images": []
                 # })
+
+            references = extract_reference(response["messages"])
+                
+            if references:
+                ref = "\n\n### Reference\n"
+            for i, reference in enumerate(references):
+                ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+            logger.info(f"ref: {ref}")
+
+            response += ref
 
             st.markdown(response)
 
