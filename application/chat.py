@@ -85,6 +85,39 @@ secretsmanager = boto3.client(
     region_name=bedrock_region
 )
 
+# api key for weather
+weather_api_key = ""
+try:
+    get_weather_api_secret = secretsmanager.get_secret_value(
+        SecretId=f"openweathermap-{projectName}"
+    )
+    #print('get_weather_api_secret: ', get_weather_api_secret)
+    secret = json.loads(get_weather_api_secret['SecretString'])
+    #print('secret: ', secret)
+    weather_api_key = secret['weather_api_key']
+
+except Exception as e:
+    raise e
+
+# api key to use LangSmith
+langsmith_api_key = ""
+try:
+    get_langsmith_api_secret = secretsmanager.get_secret_value(
+        SecretId=f"langsmithapikey-{projectName}"
+    )
+    #print('get_langsmith_api_secret: ', get_langsmith_api_secret)
+    secret = json.loads(get_langsmith_api_secret['SecretString'])
+    #print('secret: ', secret)
+    langsmith_api_key = secret['langsmith_api_key']
+    langchain_project = secret['langchain_project']
+except Exception as e:
+    raise e
+
+if langsmith_api_key:
+    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_PROJECT"] = langchain_project
+
 # api key to use Tavily Search
 tavily_key = tavily_api_wrapper = ""
 try:
@@ -434,6 +467,35 @@ def summary_image(img_base64, instruction):
             raise Exception ("Not able to request to LLM")
         
     return extracted_text
+
+def traslation(chat, text, input_language, output_language):
+    system = (
+        "You are a helpful assistant that translates {input_language} to {output_language} in <article> tags." 
+        "Put it in <result> tags."
+    )
+    human = "<article>{text}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    # print('prompt: ', prompt)
+    
+    chain = prompt | chat    
+    try: 
+        result = chain.invoke(
+            {
+                "input_language": input_language,
+                "output_language": output_language,
+                "text": text,
+            }
+        )
+        
+        msg = result.content
+        # print('translated text: ', msg)
+    except Exception:
+        err_msg = traceback.format_exc()
+        logger.info(f"error message: {err_msg}")     
+        raise Exception ("Not able to request to LLM")
+
+    return msg[msg.find('<result>')+8:len(msg)-9] # remove <result> tag
 
 def extract_text(img_base64):    
     multimodal = get_chat(extended_thinking="Disable")
@@ -1209,13 +1271,11 @@ async def mcp_rag_agent_multiple(query, historyMode, st):
                     st.image(image)
 
                 references = extract_reference(response["messages"])
-
                 if references:
                     ref = "\n\n### Reference\n"
-                for i, reference in enumerate(references):
-                    ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
-
-                result += ref
+                    for i, reference in enumerate(references):
+                        ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+                    result += ref
 
                 if model_type == "nova":
                     result = extract_thinking_tag(result, st) # for nova
@@ -1291,7 +1351,7 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
             st.info(f"report_url: {report_url}")
                                             
             response = await implementation.run(query, request_id)
-            logger.info(f"response: {response["messages"]}")
+            logger.info(f"response: {response}")
 
             # message queue
             while not implementation.message_queue.empty():
@@ -1303,15 +1363,13 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
                 #     "images": []
                 # })
 
-            references = extract_reference(response["messages"])
-                
-            if references:
-                ref = "\n\n### Reference\n"
-            for i, reference in enumerate(references):
-                ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
-            logger.info(f"ref: {ref}")
-
-            response += ref
+            # references = extract_reference(response)                
+            # if references:
+            #     ref = "\n\n### Reference\n"
+            #     for i, reference in enumerate(references):
+            #         ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+            #     logger.info(f"ref: {ref}")
+            #     response += ref
 
             st.markdown(response)
 
