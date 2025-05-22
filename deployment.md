@@ -54,7 +54,7 @@ git clone https://github.com/kyopark2014/mcp
 2) cdk 폴더로 이동하여 필요한 라이브러리를 설치합니다.
 
 ```java
-cd mcp/cdk-mcp-rag/ && npm install
+cd mcp/cdk-mcp-manus/ && npm install
 ```
 
 3) CDK 사용을 위해 Boostraping을 수행합니다.
@@ -100,7 +100,7 @@ cdk deploy --require-approval never --all
 [Secret manager](https://us-west-2.console.aws.amazon.com/secretsmanager/listsecrets?region=us-west-2)에 접속하여, [openweathermap-bedrock-agent](https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=openweathermap-bedrock-agent&region=us-west-2), [tavilyapikey-bedrock-agent](https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=tavilyapikey-bedrock-agent&region=us-west-2), [langsmithapikey-bedrock-agent](https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=langsmithapikey-bedrock-agent&region=us-west-2)에 접속하여, [Retrieve secret value]를 선택 후, api key를 입력합니다.
 
 
-6) 만약 Streamlit에서 AWS Credential이 필요하다면, [Console-EC2](https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#Instances:instanceState=running)에서 "app-for-mcp-rag"을 선택한 후에 [Connect]를 선택합니다. 여러가지 옵션 중에서 Session Manager를 선택한 후에 [connect]를 접속한 후에 console로 접속합니다. 아래 명령어를 이용하여 ec2-user에 AWS Credential을 입력합니다.
+6) 만약 Streamlit에서 AWS Credential이 필요하다면, [Console-EC2](https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#Instances:instanceState=running)에서 "app-for-mcp-manus"을 선택한 후에 [Connect]를 선택합니다. 여러가지 옵션 중에서 Session Manager를 선택한 후에 [connect]를 접속한 후에 console로 접속합니다. 아래 명령어를 이용하여 ec2-user에 AWS Credential을 입력합니다.
 
 ```text
 sudo runuser -l ec2-user -c 'aws configure'
@@ -179,8 +179,8 @@ cat << EOF > /tmp/config.json
              "collect_list":[
                 {
                    "file_path":"/var/log/application/logs.log",
-                   "log_group_name":"mcp-rag.log",
-                   "log_stream_name":"mcp-rag.log",
+                   "log_group_name":"mcp-manus.log",
+                   "log_stream_name":"mcp-manus.log",
                    "timezone":"UTC"
                 }
              ]
@@ -258,7 +258,7 @@ sudo runuser -l ec2-user -c "/home/ec2-user/.local/bin/streamlit run /home/ec2-u
 이때, ec2-user의 github 코드를 업데이트하는 명령어는 아래와 같습니다.
 
 ```text
-sudo runuser -l ec2-user -c 'cd /home/ec2-user/mcp-rag && git pull'
+sudo runuser -l ec2-user -c 'cd /home/ec2-user/mcp-manus && git pull'
 ```
 
 ### Streamlit 관련 중요한 명령어들
@@ -297,7 +297,7 @@ After=network-online.target
 User=ec2-user
 Group=ec2-user
 Restart=always
-ExecStart=/home/ec2-user/.local/bin/streamlit run /home/ec2-user/mcp-rag/application/app.py
+ExecStart=/home/ec2-user/.local/bin/streamlit run /home/ec2-user/mcp-manus/application/app.py
 
 [Install]
 WantedBy=multi-user.target

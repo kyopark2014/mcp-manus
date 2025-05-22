@@ -93,6 +93,6 @@ Directly output the raw Markdown format of Plan as below
 - Ensure the plan is clear and logical, with tasks assigned to the correct tool based on their capabilities.
 - Browser is slow and expensive. Use Browser ONLY for tasks requiring direct interaction with web pages.
 - Always use the same language as the user.
-- task가 완료되지 않으면, <status>Procedding</status>를 붙이고, 모든 task가 완료되면 <status>Completed</status>를 붙입니다.
+- If a task is not completed, attach <status>Proceeding</status>, and if all tasks are completed, attach <status>Completed</status>.
 
 </notes>
