@@ -188,7 +188,6 @@ if clear_button or "messages" not in st.session_state:
     uploaded_file = None
     
     st.session_state.greetings = False
-    chat.clear_chat_history()
     st.rerun()
 
 # Preview the uploaded image in the sidebar
