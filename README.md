@@ -9,7 +9,7 @@
 
 ## 주요 구현
 
-### LangGraph Builder를 이용해 Workflow 구현
+### LangGraph Builder를 이용해 Manus Workflow 구현
 
 LangGraph Builder를 이용해 Manus Workflow를 정의합니다. [Langgraph Builder](https://build.langchain.com/)에 접속하여 아래와 같이 workflow를 그린 후, 오른쪽의 code generator 버튼을 이용해 LangGraph 코드를 생성합니다. 이후 생성한 stub.py, spec.yml, implementation.py을 visual studio나 cursor로 다운로드 한 후 필요한 노드를 구현합니다. 상세 내용은 [LangGraph Builder로 Agent 개발하기](https://github.com/kyopark2014/langgraph-builder)을 참조합니다.
 
