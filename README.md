@@ -283,3 +283,18 @@ Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습
 
 <img src="https://github.com/user-attachments/assets/809cb6cb-aa41-41c3-969f-a9a86cad5609" width="550">
 
+## 실행 결과
+
+"DNA의 strands에 대해 설명해주세요."와 질문을 하고 결과를 확인합니다. 결과는 web page로 확인할 수 있습니다.
+
+먼저, 계획은 아래와 같이 checklist 형태로 주어지며, tavily-search, search_papers, repl_drawer, repl_coder가 목적에 맞게 활용됩니다. 
+
+![image](https://github.com/user-attachments/assets/278884e1-f716-40bc-b8c4-94446a5e347c)
+
+단계별 실행 결과에는 각 tool들의 결과가 아래와 같이 순차적으로 저장됩니다. 
+
+![image](https://github.com/user-attachments/assets/88dd6df3-8f76-43d1-9c32-bc7a476a4e50)
+
+이후, 최종적으로는 아래와 같은 결과 리포트가 생성됩니다. 리포트가 길어서 표시되지 않았지만, 최종 결과는 단계별 실행 결과를 모아서 장문의 리포트를 생성하게 됩니다.
+
+![image](https://github.com/user-attachments/assets/4c6824fe-ef76-4390-b3e4-36b7f27d51bc)
