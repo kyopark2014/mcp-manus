@@ -1,6 +1,6 @@
 # MCP Manus
 
-Here we implement a fully automated agent (Autonomous AI Agent) like Manus using MCP. This is based on the operation methods and prompts from [Bedrock-Manus: AI Automation Framework Based on Amazon Bedrock](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus) and [LangManus](https://github.com/Darwin-lfl/langmanus). Bedrock Manus and LangManus have the characteristics of Manus's fully automated multi-agent system, enabling them to generate good reports even for complex requests. Since MCP can easily connect various data sources, it makes it easy to develop various applications when combined with Manus.
+Here we implement a fully automated agent like Manus using MCP. This is based on the operation methods and prompts from [Bedrock-Manus: AI Automation Framework Based on Amazon Bedrock](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus) and [LangManus](https://github.com/Darwin-lfl/langmanus). Bedrock Manus and LangManus have the characteristics of Manus's fully automated multi-agent system, enabling them to generate good reports even for complex requests. Since MCP can easily connect various data sources, it makes it easy to develop various applications when combined with Manus.
 
 ## Detailed Implementation
 
