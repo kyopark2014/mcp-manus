@@ -2,6 +2,11 @@
 
 여기에서는 MCP를 이용하여 Manus와 같은 완전 자동화 에이전트(Autonomous AI Agent Redefining)를 구현합니다. 이것은 [Bedrock-Manus: AI Automation Framework Based on Amazon Bedrock](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus)와 [LangManus](https://github.com/Darwin-lfl/langmanus)의 동작 방식과 [Prompt](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus/src/prompts)를 참조하고 있습니다. Bedrock Manus와 LangManus는 Manus의 특징인 완전 자동화 멀티 에이전트의 특징을 가지고 있어서, 복잡한 요청에도 좋은 리포트를 생성할 수 있습니다. MCP는 다양한 데이터 소스를 쉽게 연결할 수 있으므로 Manus 결합시 다양한 애플리케이션을 손쉽게 개발할 수 있습니다.
 
+전체적인 Architecture는 아래와 같습니다. 
+
+<img width="398" alt="image" src="https://github.com/user-attachments/assets/9f1cbe01-efd4-43a4-a28e-672abd7a1c8b" />
+
+
 ## 상세 구현
 
 ### LangBuilder를 이용해 Workflow 구현
