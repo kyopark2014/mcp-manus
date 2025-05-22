@@ -228,17 +228,10 @@ def Reporter(state: State, config: dict) -> dict:
 
 ## MCP의 활용
 
-여기에서는 [MCP-github](https://github.com/kyopark2014/mcp)에서 생성한 MCP server들을 활용합니다. 아래와 같이 메뉴에서 필요한 MCP 서버를 선택한 후에 질문을 입력하면 아래와 같이 tool들에 대한 정보를 MCP server로부터 가져옵니다. 여기에서는 code interpreter와 tavily를 선택하였으므로, repl_coder, repl_drawer, tavily-search, tavily-extract가 사용할 수 있는 tool입니다. 
+여기에서는 [MCP-github](https://github.com/kyopark2014/mcp)에서 생성한 MCP server들을 활용합니다. 아래와 같이 메뉴에서 필요한 MCP 서버를 선택한 후에 질문을 입력하면 아래와 같이 tool들에 대한 정보를 MCP server로부터 가져옵니다. 아래와 같이 필요한 MCP server를 선택합니다.
 
-![image](https://github.com/user-attachments/assets/c1eac880-89be-4a0d-85a7-3f719bdaf032)
+![image](https://github.com/user-attachments/assets/eae586f7-5e50-4176-842b-6ae0a1803f63)
 
-이때 "Strawberry의 r의 갯수는?"와 같은 질문에 대해서 아래와 같은 Plan이 실행되었습니다.
-
-<img src="https://github.com/user-attachments/assets/f081f272-67ed-437f-aa70-d819c748a7af" width="550">
-
-Plan에 따라서 code interpreter가 실행되었고 결과는 아래와 같습니다.
-
-<img src="https://github.com/user-attachments/assets/ca1943fe-8c93-4912-aa6d-f378fbb88d13" width="550">
 
 ## 활용 예제
 
