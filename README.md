@@ -235,11 +235,7 @@ def Reporter(state: State, config: dict) -> dict:
 
 ## 활용 예제
 
-아래와 같이 "aws document", "aws diagram", "tavily"을 선택한 후에 "aws에서 생성형 AI chatbot을 RAG와 함께 구현하는 방법?"을 입력하면 아래와 같이 사용할 수 있는 MCP tool들의 정보를 가져와서 적절한 plan을 생성합니다.
-
-![image](https://github.com/user-attachments/assets/76f8b1df-e8ec-4e05-b9a5-3e89c58906ec)
-
-사용할 수 있는 tool은 read_documentation, search_documentation, recommend, generate_diagram, get_diagram_examples, list_icons, tavily-search, tavily-extract 입니다. 이를 이용해 생성한 plan은 아래와 같습니다.
+"aws document", "aws diagram", "tavily"을 선택한 후에 "aws에서 생성형 AI chatbot을 RAG와 함께 구현하는 방법?"을 입력하면 적절한 plan을 생성합니다. 이때, 사용할 수 있는 tool은 read_documentation, search_documentation, recommend, generate_diagram, get_diagram_examples, list_icons, tavily-search, tavily-extract 입니다. 이를 이용해 생성한 plan의 예는 아래와 같습니다.
 
 ```text
 ## Title: AWS 생성형 AI Chatbot with RAG 구현 가이드
@@ -281,9 +277,7 @@ def Reporter(state: State, config: dict) -> dict:
 
 ## 실행 결과
 
-"DNA의 strands에 대해 설명해주세요."와 질문을 하고 결과를 확인합니다. 결과는 web page로 확인할 수 있습니다.
-
-먼저, 계획은 아래와 같이 checklist 형태로 주어지며, tavily-search, search_papers, repl_drawer, repl_coder가 목적에 맞게 활용됩니다. 
+Streamlit에서 보여주는 chatbot UI는 전체 결과를 보여주기 어려우므로 아래와 같이 web page를 이용해 결과를 확인하고 공유합니다. 아래는 "DNA의 strands에 대해 설명해주세요."라는 질문에 대한 결과입니다. 계획은 아래와 같이 checklist 형태로 주어지며, tavily-search, search_papers, repl_drawer, repl_coder가 목적에 맞게 활용됩니다. 
 
 ![image](https://github.com/user-attachments/assets/278884e1-f716-40bc-b8c4-94446a5e347c)
 
