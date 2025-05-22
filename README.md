@@ -185,14 +185,20 @@ async def Operator(state: State) -> dict:
 [reporter.md](./application/reporter.md)을 활용하여 보고서를 생성합니다. 
 
 ```python
-def Reporter(state: State) -> dict:
+def Reporter(state: State, config: dict) -> dict:
     prompt_name = "Reporter"
-    system_prompt=get_prompt_template(prompt_name)
-    logger.info(f"system_prompt: {system_prompt}")
+    request_id = config.get("configurable", {}).get("request_id", "")    
     
-    llm = chat.get_chat(extended_thinking="Disable")
+    key = f"artifacts/{request_id}_steps.md"
+    context = chat.get_object(key)
 
-    human = "{messages}"
+    system_prompt=get_prompt_template(prompt_name)
+    llm = chat.get_chat(extended_thinking="Disable")
+    human = (
+        "다음의 context를 바탕으로 사용자의 질문에 대한 답변을 작성합니다.\n"
+        "<question>{question}</question>\n"
+        "<context>{context}</context>"
+    )
     reporter_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system_prompt),
@@ -200,14 +206,21 @@ def Reporter(state: State) -> dict:
         ]
     )
 
+    question = state["messages"][0].content
+    logger.info(f"question: {question}")
+
     prompt = reporter_prompt | llm 
     result = prompt.invoke({
-        "messages": state["messages"]
+        "context": context,
+        "question": question
     })
+    logger.info(f"result of Reporter: {result}")
+
+    key = f"artifacts/{request_id}_report.md"
+    chat.create_object(key, result.content)
 
     return {
-        "report": result.content,
-        "full_plan": state["full_plan"]
+        "report": result.content
     }
 ```
 
