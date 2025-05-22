@@ -4,7 +4,7 @@
 
 전체적인 Architecture는 아래와 같습니다. 
 
-<img width="398" alt="image" src="https://github.com/user-attachments/assets/9f1cbe01-efd4-43a4-a28e-672abd7a1c8b" />
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/e05d85cb-e67f-4970-9ebc-74b08740afcd" />
 
 
 ## 상세 구현
