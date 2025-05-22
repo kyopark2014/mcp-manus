@@ -1,29 +1,27 @@
 # MCP Manus
 
-여기에서는 MCP (Model Context Protocol)을 이용하여 Manus와 같은 완전 자동화 에이전트(Autonomous AI Agent Redefining)를 구현합니다. [Manus](https://manus.im/)는 planning을 통해 스스로 자기가 해야 할 이것을 checklist을 작성하고 multi agent를 이용해 효율적으로 주어진 task를 수행합니다. 이러한 agent 동작은 [Bedrock-Manus: AI Automation Framework Based on Amazon Bedrock](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus)와 [LangManus](https://github.com/Darwin-lfl/langmanus)을 참조하였습니다. 
+여기에서는 MCP (Model Context Protocol)을 이용하여 Manus와 같은 완전 자동화 에이전트(Autonomous AI Agent Redefining)를 구현합니다. [Manus](https://manus.im/)는 planning을 통해 스스로 자기가 해야 할 checklist을 작성하고 multi agent를 이용해 효율적으로 주어진 task를 수행합니다. 이러한 agent 동작은 [Bedrock-Manus: AI Automation Framework Based on Amazon Bedrock](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus)와 [LangManus](https://github.com/Darwin-lfl/langmanus)을 참조하였습니다. 
 
-[MCP](https://github.com/modelcontextprotocol)를 이용하면 다양한 데이터 소스를 쉽게 연결하여 AI 애플리케이션을 개발할 수 있습니다. 여기에서는 [LangChain MCP adapter](https://github.com/langchain-ai/langchain-mcp-adapters)을 이용해 다수의 MCP server로 부터 tool에 대한 capability를 가져오고 이를 이용해 적절한 task를 수행합니다. 또한 LangGraph Builder를 이용해 MCP Manus Agent를 쉽게 설계함으로서 추가적인 수정 및 이해의 편의성을 높입니다.
-
-전체적인 Architecture는 아래와 같습니다. MCP Manum는 개인 PC등에서 local에 설치하여 사용할 수 있으며, 필요시 아래와 같이 EC2에 container형태로 deploy하여 활용할 수 있습니다. 이때 Lambda를 이용해 RAG를 활용하고 MCP server를 이용해 tavily, wikipedia와 같은 외부 데이터를 활용할 수 있습니다. 
+[MCP](https://github.com/modelcontextprotocol)를 이용하면 다양한 데이터 소스를 쉽게 연결하여 AI 애플리케이션을 개발할 수 있습니다. 여기에서는 [LangChain MCP adapter](https://github.com/langchain-ai/langchain-mcp-adapters)을 이용해 다수의 MCP server로 부터 tool에 대한 capability를 가져오고 이를 이용해 적절한 task를 수행합니다. 또한 LangGraph Builder를 이용해 MCP Manus Agent를 쉽게 설계함으로서 추가적인 수정 및 이해의 편의성을 높입니다. 전체적인 Architecture는 아래와 같습니다. MCP Manum는 개인 PC등에서 local에 설치하여 사용할 수 있으며, 필요시 아래와 같이 EC2에 container형태로 deploy하여 활용할 수 있습니다. 이때 Lambda를 이용해 RAG를 활용하고 MCP server를 이용해 tavily, wikipedia와 같은 외부 데이터를 활용할 수 있습니다. 
 
 <img width="700" alt="image" src="https://github.com/user-attachments/assets/e05d85cb-e67f-4970-9ebc-74b08740afcd" />
 
 
-## 상세 구현
+## 주요 구현
 
-### LangBuilder를 이용해 Workflow 구현
+### LangGraph Builder를 이용해 Workflow 구현
 
-LangBuilder를 이용해 Manus Workflow를 정의합니다. [LangBuilder를](https://build.langchain.com/)에 접속하여 아래와 같이 workflow를 그린 후, 오른쪽의 code generator 버튼을 이용해 LangGraph 코드를 생성합니다. 이후 생성한 stub.py, spec.yml, implementation.py을 visual studio나 cursor로 다운로드 한 후 필요한 노드를 구현합니다. 상세 내용은 [LangGraph Builder로 Agent 개발하기](https://github.com/kyopark2014/langgraph-builder)을 참조합니다.
+LangGraph Builder를 이용해 Manus Workflow를 정의합니다. [Langgraph Builder](https://build.langchain.com/)에 접속하여 아래와 같이 workflow를 그린 후, 오른쪽의 code generator 버튼을 이용해 LangGraph 코드를 생성합니다. 이후 생성한 stub.py, spec.yml, implementation.py을 visual studio나 cursor로 다운로드 한 후 필요한 노드를 구현합니다. 상세 내용은 [LangGraph Builder로 Agent 개발하기](https://github.com/kyopark2014/langgraph-builder)을 참조합니다.
 
 <img src="./contents/flow_mcp_manus_final.gif" width="500">
 
-이를 LangGraph Studio를 이용해 graph 형태로 그리면 아래와 같습니다.
+이를 LangGraph Studio를 이용해 graph 형태로 그리면 아래와 같습니다. 
 
 <img src="https://github.com/user-attachments/assets/07beb69d-aaf2-4fc3-bb4b-ddddbec72743" width="500">
 
 ### State 구현
 
-Manus는 완전 자동화된 agent를 구현하기 위하여 Planning을 활용하고 있습니다. 이를 위해 State에는 아래와 같이 full_plan을 이용하여 LLM이 수행할 계획을 지정합니다. 또한 연속되는 동작의 결과를 저장하기 위하여 messages를 활용합니다. 최종 결과와 생성된 report는 final_response와 report를 활용해 저장되고 채팅창에 표시됩니다.
+Manus와 같은 완전 자동화된 agent를 구현하기 위하여 Planning을 활용합니다. 이를 위해 state에는 현재 계획에 대한 full_plan을 정의하고, LLM이 순차적으로 수행할 계획을 설정합니다. 또한 연속되는 동작의 결과를 저장하기 위하여 messages를 활용합니다. 최종 결과와 생성된 report는 final_response와 report를 활용해 저장되고 채팅창에 표시됩니다.
 
 ```python
 class State(TypedDict):
@@ -100,7 +98,7 @@ def Coordinator(state: State) -> dict:
 
 ### Planner의 구현
 
-Planner는 [planner.md](./application/planner.md)을 이용해 system prompt를 구성합니다. 이때 planner의 input으로 state 전체를 전달하는데, full_plan과 messages를 이용해 plan을 업데이트 할 수 있습니다. planner.md의 prompt에 의해서 LLM이 plan을 완료하였다고 판단이 되면 <status> tag에 "Completed"라고 전달합니다. 이를 확인하여 messages의 마지막 항목을 final_response를 설정할 수 있습니다. state가 "Procedding"이라면 생성된 plan을 리턴합니다. 
+Planner는 [planner.md](./application/planner.md)을 이용해 system prompt를 구성합니다. 이때 planner의 input으로 state 전체를 전달하는데, full_plan과 messages를 이용해 plan을 업데이트 할 수 있습니다. planner.md의 prompt에 의해서 LLM이 plan을 완료하였다고 판단이 되면 <status> tag에 "Completed"라고 전달합니다. 이를 확인하여 messages의 마지막 항목을 final_response를 설정할 수 있습니다. state가 "Proceeding"이라면 생성된 plan을 리턴합니다. 
 
 ```python
 def Planner(state: State) -> dict:
@@ -170,9 +168,7 @@ async def Operator(state: State) -> dict:
         for tool in tool_list:
             if tool.name == next:
                 tool_info.append(tool)
-                logger.info(f"tool_info: {tool_info}")
         
-        # Agent
         agent, config = chat.create_agent(tool_info)
         messages = [HumanMessage(content=json.dumps(task))]
         response = await agent.ainvoke({"messages": messages}, config)
@@ -188,7 +184,7 @@ async def Operator(state: State) -> dict:
 
 ### Reporter의 구현
 
-[reporter.md](./application/reporter.md)을 활용하여 보고서를 생성합니다. 
+[reporter.md](./application/reporter.md)을 활용하여 보고서를 생성합니다. 최종 보거서는 이전 steps에서 수행된 결과를 모아서 아래와 같이 prompt로 결과를 요약합니다. 이전 수행된 결과들은 request_id를 이용해 조회할 수 있고, 이때 얻어진 결과를 다시 markdown 형태의 파일로 저장합니다. 이 markdown 파일을 S3에 저장되며, CloudFront를 이용해 조회될 수 있습니다.
 
 ```python
 def Reporter(state: State, config: dict) -> dict:
