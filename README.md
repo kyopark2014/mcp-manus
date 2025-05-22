@@ -31,7 +31,7 @@ class State(TypedDict):
     report: str
 ```
 
-### Multi-agent 구조
+### Multi-agent 구현
 
 여기서 LangGraph로 구현된 Agent 구조는 아래와 같습니다. 상세한 코드는 [stub.py](./application/stub.py)을 참조합니다. Coordinate는 사용자의 요청이 planning이 필요한 지 판단하여, planning이 필요한 경우에만 라우팅을 수행합니다. planning은 prompt를 [planner.md](./application/planner.md)을 이용해 system prompt를 생성하고, 적절한 plan을 생성합니다. 이후 Operator는 plan에서 지정한 tool을 수행하게 됩니다. tool 실행시 하나의 agent를 생성하므로 전체적인 구조는 multi agent 형태로 동작합니다. 
 
