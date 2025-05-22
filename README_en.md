@@ -2,6 +2,10 @@
 
 Here a fully automated agent like Manus using MCP is implemented. This is based on the operation methods and prompts from [Bedrock-Manus: AI Automation Framework Based on Amazon Bedrock](https://github.com/aws-samples/aws-ai-ml-workshop-kr/tree/master/genai/aws-gen-ai-kr/20_applications/08_bedrock_manus) and [LangManus](https://github.com/Darwin-lfl/langmanus). Bedrock Manus and LangManus have the characteristics of Manus's fully automated multi-agent system, enabling them to generate good reports even for complex requests. Since MCP can easily connect various data sources, it makes it easy to develop various applications when combined with Manus.
 
+[MCP](https://github.com/modelcontextprotocol) allows easy connection of various data sources to develop AI applications. Here, we use the [LangChain MCP adapter](https://github.com/langchain-ai/langchain-mcp-adapters) to retrieve tool capabilities from multiple MCP servers and use them to perform appropriate tasks. Additionally, we use [LangGraph Builder](https://build.langchain.com/) to easily design the MCP Manus Agent, improving the convenience of additional modifications and understanding. The overall architecture is as follows. MCP Manus can be installed and used locally on a personal PC, and can be deployed as a container on EC2 when needed. At this time, RAG can be utilized using Lambda, and external data such as tavily and wikipedia can be utilized using MCP servers.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/f2bf4f83-279d-4bee-8699-53c3658648c8" />
+
 ## Detailed Implementation
 
 ### Implementing Workflow using LangBuilder
@@ -227,7 +231,7 @@ def Reporter(state: State, config: dict) -> dict:
 
 Here we utilize MCP servers created from [MCP-github](https://github.com/kyopark2014/mcp). After selecting the necessary MCP server from the menu and entering a question, information about the tools is retrieved from the MCP server as shown below. Here, since code interpreter and tavily were selected, repl_coder, repl_drawer, tavily-search, and tavily-extract are the available tools.
 
-![image](https://github.com/user-attachments/assets/c1eac880-89be-4a0d-85a7-3f719bdaf032)
+![image](https://github.com/user-attachments/assets/eae586f7-5e50-4176-842b-6ae0a1803f63)
 
 At this time, for a question like "How many r's are in Strawberry?", the following Plan was executed:
 
