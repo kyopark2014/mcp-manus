@@ -65,7 +65,6 @@ Coordinatr는 [coordinator.md](./application/coordinator.md)을 이용하여 sys
 ```python
 def Coordinator(state: State) -> dict:
     question = state["messages"][0].content
-
     prompt_name = "coordinator"
     system_prompt=get_prompt_template(prompt_name)
     
@@ -83,8 +82,8 @@ def Coordinator(state: State) -> dict:
     })
 
     final_response = ""
-    if result.content != 'to_planner':
-        logger.info(f"next: END")
+    if result.content.find('to_planner') == -1:
+        result.content = result.content.split('<next>')[0]
         final_response = result.content    
     
     return {
