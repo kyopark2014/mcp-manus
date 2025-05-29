@@ -378,6 +378,15 @@ export class CdkMcpManusStack extends cdk.Stack {
       ]
     }));
 
+    // add permission for DescribeFileSystems
+    ec2Role.addToPolicy(new iam.PolicyStatement({
+      resources: ['*'],
+      actions: [
+        'ec2:DescribeFileSystems',
+        'elasticfilesystem:DescribeFileSystems'
+      ]
+    }));
+
     // pass role
     const passRoleResourceArn = knowledge_base_role.roleArn;
     const passRolePolicy = new iam.PolicyStatement({  
