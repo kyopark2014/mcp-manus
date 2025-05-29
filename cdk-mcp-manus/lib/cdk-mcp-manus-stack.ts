@@ -51,19 +51,7 @@ export class CdkMcpManusStack extends cdk.Stack {
     const bedrockKnowledgeBaseS3Policy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       resources: ['*'],
-      actions: [
-        "s3:GetBucketLocation",
-        "s3:GetObject",
-        "s3:ListBucket",
-        "s3:ListBucketMultipartUploads",
-        "s3:ListMultipartUploadParts",
-        "s3:AbortMultipartUpload",
-        "s3:CreateBucket",
-        "s3:PutObject",
-        "s3:PutBucketLogging",
-        "s3:PutBucketVersioning",
-        "s3:PutBucketNotification",
-      ],
+      actions: ["s3:*"],
     });
     knowledge_base_role.attachInlinePolicy( 
       new iam.Policy(this, `knowledge-base-s3-policy-for-${projectName}`, {
@@ -336,6 +324,7 @@ export class CdkMcpManusStack extends cdk.Stack {
         tavily_api_key: cdk.SecretValue.unsafePlainText(''),
       },
     });
+    tavilyApiSecret.grantRead(ec2Role)
 
     const firecrawlApiSecret = new secretsmanager.Secret(this, `firecrawl-secret-for-${projectName}`, {
       description: 'secret for firecrawl api key', // firecrawl
@@ -346,7 +335,7 @@ export class CdkMcpManusStack extends cdk.Stack {
         firecrawl_api_key: cdk.SecretValue.unsafePlainText(''),
       },
     });
-    
+    firecrawlApiSecret.grantRead(ec2Role)
 
     const codeInterpreterSecret = new secretsmanager.Secret(this, `code-interpreter-secret-for-${projectName}`, {
       description: 'secret for code interpreter api key', // code interpreter
@@ -380,6 +369,14 @@ export class CdkMcpManusStack extends cdk.Stack {
         statements: [ec2Policy],
       }),
     );
+
+    // Lambda Invoke
+    ec2Role.addToPolicy(new iam.PolicyStatement({
+      resources: ['*'],
+      actions: [
+        'lambda:InvokeFunction'
+      ]
+    }));
 
     // pass role
     const passRoleResourceArn = knowledge_base_role.roleArn;

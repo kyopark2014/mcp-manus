@@ -118,7 +118,7 @@ with st.sidebar:
     index = 3
     modelName = st.selectbox(
         '🖊️ 사용 모델을 선택하세요',
-        ('Nova Pro', 'Nova Lite', 'Claude 3.7 Sonnet', 'Claude 3.5 Sonnet', 'Claude 3.0 Sonnet', 'Claude 3.5 Haiku'), index=index
+        ('Nova Pro', 'Nova Lite', 'Claude 4 Opus', 'Claude 4 Sonnet', 'Claude 3.7 Sonnet', 'Claude 3.5 Sonnet', 'Claude 3.0 Sonnet', 'Claude 3.5 Haiku'), index=index
     )
     
     # debug checkbox
@@ -136,9 +136,9 @@ with st.sidebar:
     # print('fileId: ', chat.fileId)
     uploaded_file = st.file_uploader("RAG를 위한 파일을 선택합니다.", type=["pdf", "txt", "py", "md", "csv", "json"], key=chat.fileId)
 
-    # extended thinking of claude 3.7 sonnet
-    select_reasoning = st.checkbox('Reasonking (only Claude 3.7 Sonnet)', value=False)
-    reasoningMode = 'Enable' if select_reasoning and modelName=='Claude 3.7 Sonnet' else 'Disable'
+    # extended thinking 
+    select_reasoning = st.checkbox('Reasoning', value=False)
+    reasoningMode = 'Enable' if select_reasoning else 'Disable'
     logger.info(f"reasoningMode: {reasoningMode}")
 
     chat.update(modelName, reasoningMode, debugMode, multiRegion, mcp=mcp)
