@@ -275,6 +275,65 @@ def Reporter(state: State, config: dict) -> dict:
 
 <img src="https://github.com/user-attachments/assets/809cb6cb-aa41-41c3-969f-a9a86cad5609" width="550">
 
+### 실행하기
+
+Output의 environmentformcprag의 내용을 복사하여 application/config.json을 생성합니다. "aws configure"로 credential이 설정되어 있어야합니다. 만약 visual studio code 사용자라면 config.json 파일은 아래 명령어를 사용합니다.
+
+```text
+code application/config.json
+```
+
+venv로 환경을 구성하면 편리합니다. 아래와 같이 환경을 설정합니다.
+
+```text
+python -m venv venv
+source venv/bin/activate
+```
+
+이후 다운로드 받은 github 폴더로 이동한 후에 아래와 같이 필요한 패키지를 추가로 설치 합니다.
+
+```text
+pip install -r requirements.txt
+```
+
+[deployment.md](./deployment.md)에 따라 AWS CDK로 Lambda, Knowledge base, Opensearch Serverless와 보안에 필요한 IAM Role을 설치합니다. 이후 아래와 같은 명령어로 streamlit을 실행합니다. 
+
+```text
+streamlit run application/app.py
+```
+
+
+### EC2에 배포하기
+
+EC2가 private subnet에 있으므로 Session Manger로 접속합니다. 이때 설치는 ec2-user로 진행되었으므로 아래와 같이 code를 업데이트합니다.
+
+```text
+sudo runuser -l ec2-user -c 'cd /home/ec2-user/mcp-manus && git pull'
+```
+
+이제 아래와 같이 docker를 빌드합니다.
+
+```text
+sudo runuser -l ec2-user -c "cd mcp-manus && docker build -t streamlit-app ."
+```
+
+빌드가 완료되면 "sudo docker ps"로 docker id를 확인후에 "sudo docker kill" 명령어로 종료합니다.
+
+![noname](https://github.com/user-attachments/assets/4afb2af8-d092-4aaa-813a-65975375f7d4)
+
+이후 아래와 같이 다시 실행합니다.
+
+```text
+sudo runuser -l ec2-user -c 'docker run -d -p 8501:8501 streamlit-app'
+```
+
+만약 console에서 debugging할 경우에는 -d 옵션없이 아래와 같이 실행합니다.
+
+```text
+sudo runuser -l ec2-user -c 'docker run -p 8501:8501 streamlit-app'
+```
+
+
 ## 실행 결과
 
 Streamlit에서 보여주는 chatbot UI는 전체 결과를 보여주기 어려우므로 아래와 같이 web page를 이용해 결과를 확인하고 공유합니다. 아래는 "DNA의 strands에 대해 설명해주세요."라는 질문에 대한 결과입니다. 계획은 아래와 같이 checklist 형태로 주어지며, tavily-search, search_papers, repl_drawer, repl_coder가 목적에 맞게 활용됩니다. 
