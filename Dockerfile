@@ -22,7 +22,6 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 # Install npm and Playwright
 RUN npm install -g npm@latest 
-RUN npm install -g @playwright/mcp@0.0.27
 
 # Install AWS CLI
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
@@ -84,12 +83,7 @@ RUN npx playwright install --with-deps chromium && npx playwright install --forc
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chrome
-ENV PLAYWRIGHT_CHROMIUM_ARGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --disable-software-rasterizer --disable-setuid-sandbox --no-zygote --single-process"
-ENV PLAYWRIGHT_LAUNCH_OPTIONS='{"args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer", "--disable-setuid-sandbox", "--no-zygote", "--single-process"]}'
-
-# Create necessary directories with proper permissions
-RUN mkdir -p /ms-playwright && chmod -R 777 /ms-playwright
-RUN mkdir -p /tmp/playwright && chmod -R 777 /tmp/playwright
+ENV PLAYWRIGHT_CHROMIUM_ARGS="--no-sandbox"
 
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
