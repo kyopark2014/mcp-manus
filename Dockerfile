@@ -11,8 +11,12 @@ RUN apt-get update && apt-get install -y \
     graphviz \
     graphviz-dev \
     pkg-config \    
-    && apt-get install -y nodejs \    
+    terminator \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \    
+    && npm install -g npm@latest \
+    && npm install -g playwright \
+    && npx playwright install chrome \    
     && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
     && ./aws/install \
@@ -29,9 +33,6 @@ RUN pip install --no-cache-dir sarif-om==1.0.4 diagrams
 RUN mkdir -p .streamlit
 COPY config.toml .streamlit/
 COPY . .
-
-RUN npm install -g playwright
-RUN npx playwright install chrome
 
 EXPOSE 8501
 
