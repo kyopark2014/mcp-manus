@@ -25,6 +25,9 @@ mode_descriptions = {
     "일상적인 대화": [
         "대화이력을 바탕으로 챗봇과 일상의 대화를 편안히 즐길수 있습니다."
     ],
+    "RAG": [
+        "Bedrock Knowledge Base를 이용해 구현한 RAG로 필요한 정보를 검색합니다."
+    ],
     "Agent": [
         "MCP를 활용한 Agent를 이용합니다. 왼쪽 메뉴에서 필요한 MCP를 선택하세요."
     ],
@@ -50,7 +53,7 @@ with st.sidebar:
     
     # radio selection
     mode = st.radio(
-        label="원하는 대화 형태를 선택하세요. ",options=["일상적인 대화", "Agent", "Agent (Chat)", "MANUS"], index=1
+        label="원하는 대화 형태를 선택하세요. ",options=["일상적인 대화", "RAG", "Agent", "Agent (Chat)", "MANUS"], index=1
     )   
     st.info(mode_descriptions[mode][0])    
     # print('mode: ', mode)
@@ -132,9 +135,10 @@ with st.sidebar:
     #print('multiRegion: ', multiRegion)
 
     uploaded_file = None
-    st.subheader("📋 문서 업로드")
-    # print('fileId: ', chat.fileId)
-    uploaded_file = st.file_uploader("RAG를 위한 파일을 선택합니다.", type=["pdf", "txt", "py", "md", "csv", "json"], key=chat.fileId)
+    if mode=='RAG' or mode=="Agent" or mode=="Agent (Chat)":
+        st.subheader("📋 문서 업로드")
+        # print('fileId: ', chat.fileId)
+        uploaded_file = st.file_uploader("RAG를 위한 파일을 선택합니다.", type=["pdf", "txt", "py", "md", "csv", "json"], key=chat.fileId)
 
     # extended thinking 
     select_reasoning = st.checkbox('Reasoning', value=False)
@@ -173,6 +177,13 @@ def display_chat_messages():
             st.markdown(message["content"])
 
 display_chat_messages()
+
+def show_references(reference_docs):
+    if debugMode == "Enable" and reference_docs:
+        with st.expander(f"답변에서 참조한 {len(reference_docs)}개의 문서입니다."):
+            for i, doc in enumerate(reference_docs):
+                st.markdown(f"**{doc.metadata['name']}**: {doc.page_content}")
+                st.markdown("---")
 
 # Greet user
 if not st.session_state.greetings:
@@ -260,6 +271,18 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             logger.info(f"response: {response}")
             st.session_state.messages.append({"role": "assistant", "content": response})
             chat.save_chat_history(prompt, response)
+
+        elif mode == 'RAG':
+            with st.status("running...", expanded=True, state="running") as status:
+                response, reference_docs = chat.run_rag_with_knowledge_base(prompt, st)                           
+                st.write(response)
+                logger.info(f"response: {response}")
+
+                st.session_state.messages.append({"role": "assistant", "content": response})
+
+                chat.save_chat_history(prompt, response)
+            
+            show_references(reference_docs) 
 
         elif mode == 'Agent':
             sessionState = ""

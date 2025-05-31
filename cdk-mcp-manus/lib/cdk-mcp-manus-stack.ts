@@ -638,6 +638,7 @@ export class CdkMcpManusStack extends cdk.Stack {
       functionName: `lambda-rag-for-${projectName}`,
       code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../../lambda-rag')),
       timeout: cdk.Duration.seconds(120),
+      memorySize: 4096,
       role: roleLambdaRag,
       environment: {
         bedrock_region: String(region),

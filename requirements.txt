@@ -26,4 +26,5 @@ uv
 kaleido
 requests
 wikipedia
-sarif-om
+sarif-om==1.0.4
+graphviz

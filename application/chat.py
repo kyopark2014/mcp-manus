@@ -71,13 +71,36 @@ if accountId is None:
 region = config["region"] if "region" in config else "us-west-2"
 logger.info(f"region: {region}")
 
+knowledge_base_role = config["knowledge_base_role"] if "knowledge_base_role" in config else None
+if knowledge_base_role is None:
+    raise Exception ("No Knowledge Base Role")
+
+collectionArn = config["collectionArn"] if "collectionArn" in config else None
+if collectionArn is None:
+    raise Exception ("No collectionArn")
+
+vectorIndexName = projectName
+
+opensearch_url = config["opensearch_url"] if "opensearch_url" in config else None
+if opensearch_url is None:
+    raise Exception ("No OpenSearch URL")
+
 path = config["sharing_url"] if "sharing_url" in config else None
 if path is None:
     raise Exception ("No Sharing URL")
 
+s3_arn = config["s3_arn"] if "s3_arn" in config else None
+if s3_arn is None:
+    raise Exception ("No S3 ARN")
+
 s3_bucket = config["s3_bucket"] if "s3_bucket" in config else None
 if s3_bucket is None:
     raise Exception ("No storage!")
+
+knowledge_base_name = projectName
+numberOfDocs = 4
+
+MSG_LENGTH = 100    
 
 # api key to get weather information in agent
 secretsmanager = boto3.client(
@@ -867,6 +890,169 @@ def general_conversation(query):
         raise Exception ("Not able to request to LLM: "+err_msg)
         
     return response
+
+####################### Bedrock Agent #######################
+# RAG using Lambda
+############################################################# 
+def get_rag_prompt(text):
+    # print("###### get_rag_prompt ######")
+    llm = get_chat(extended_thinking="Disable")
+    # print('model_type: ', model_type)
+    
+    if model_type == "nova":
+        if isKorean(text)==True:
+            system = (
+                "당신의 이름은 서연이고, 질문에 대해 친절하게 답변하는 사려깊은 인공지능 도우미입니다."
+                "다음의 Reference texts을 이용하여 user의 질문에 답변합니다."
+                "모르는 질문을 받으면 솔직히 모른다고 말합니다."
+                "답변의 이유를 풀어서 명확하게 설명합니다."
+            )
+        else: 
+            system = (
+                "You will be acting as a thoughtful advisor."
+                "Provide a concise answer to the question at the end using reference texts." 
+                "If you don't know the answer, just say that you don't know, don't try to make up an answer."
+                "You will only answer in text format, using markdown format is not allowed."
+            )    
+    
+        human = (
+            "Question: {question}"
+
+            "Reference texts: "
+            "{context}"
+        ) 
+        
+    elif model_type == "claude":
+        if isKorean(text)==True:
+            system = (
+                "당신의 이름은 서연이고, 질문에 대해 친절하게 답변하는 사려깊은 인공지능 도우미입니다."
+                "다음의 <context> tag안의 참고자료를 이용하여 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다." 
+                "모르는 질문을 받으면 솔직히 모른다고 말합니다."
+                "답변의 이유를 풀어서 명확하게 설명합니다."
+                "결과는 <result> tag를 붙여주세요."
+            )
+        else: 
+            system = (
+                "You will be acting as a thoughtful advisor."
+                "Here is pieces of context, contained in <context> tags." 
+                "If you don't know the answer, just say that you don't know, don't try to make up an answer."
+                "You will only answer in text format, using markdown format is not allowed."
+                "Put it in <result> tags."
+            )    
+
+        human = (
+            "<question>"
+            "{question}"
+            "</question>"
+
+            "<context>"
+            "{context}"
+            "</context>"
+        )
+
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    # print('prompt: ', prompt)
+    
+    rag_chain = prompt | llm
+
+    return rag_chain
+ 
+def retrieve_knowledge_base(query):
+    lambda_client = boto3.client(
+        service_name='lambda',
+        region_name=bedrock_region
+    )
+
+    functionName = f"lambda-rag-for-{projectName}"
+    logger.info(f"functionName: {functionName}")
+
+    try:
+        payload = {
+            'function': 'search_rag',
+            'knowledge_base_name': knowledge_base_name,
+            'keyword': query,
+            'top_k': numberOfDocs,
+            'grading': "Enable",
+            'model_name': model_name,
+            'multi_region': multi_region
+        }
+        logger.info(f"payload: {payload}")
+
+        output = lambda_client.invoke(
+            FunctionName=functionName,
+            Payload=json.dumps(payload),
+        )
+        payload = json.load(output['Payload'])
+        logger.info(f"response: {payload['response']}")
+        
+    except Exception:
+        err_msg = traceback.format_exc()
+        logger.info(f"error message: {err_msg}")       
+
+    return payload['response']
+
+def get_reference_docs(docs):    
+    reference_docs = []
+    for doc in docs:
+        reference = doc.get("reference")
+        reference_docs.append(
+            Document(
+                page_content=doc.get("contents"),
+                metadata={
+                    'name': reference.get("title"),
+                    'url': reference.get("url"),
+                    'from': reference.get("from")
+                },
+            )
+    )     
+    return reference_docs
+
+def run_rag_with_knowledge_base(query, st):
+    global reference_docs, contentList
+    reference_docs = []
+    contentList = []
+
+    # retrieve
+    if debug_mode == "Enable":
+        st.info(f"RAG 검색을 수행합니다. 검색어: {query}")  
+
+    relevant_context = retrieve_knowledge_base(query)    
+    logger.info(f"relevant_context: {relevant_context}")
+    
+    # change format to document
+    reference_docs = get_reference_docs(json.loads(relevant_context))
+    st.info(f"{len(reference_docs)}개의 관련된 문서를 얻었습니다.")
+
+    rag_chain = get_rag_prompt(query)
+                       
+    msg = ""    
+    try: 
+        result = rag_chain.invoke(
+            {
+                "question": query,
+                "context": relevant_context                
+            }
+        )
+        logger.info(f"result: {result}")
+
+        msg = result.content        
+        if msg.find('<result>')!=-1:
+            msg = msg[msg.find('<result>')+8:msg.find('</result>')]        
+               
+    except Exception:
+        err_msg = traceback.format_exc()
+        logger.info(f"error message: {err_msg}")                    
+        raise Exception ("Not able to request to LLM")
+    
+    if reference_docs:
+        logger.info(f"reference_docs: {reference_docs}")
+        ref = "\n\n### Reference\n"
+        for i, reference in enumerate(reference_docs):
+            ref += f"{i+1}. [{reference.metadata['name']}]({reference.metadata['url']}), {reference.page_content[:100]}...\n"    
+        logger.info(f"ref: {ref}")
+        msg += ref
+    
+    return msg, reference_docs
 
 #########################################################
 # Agent 
