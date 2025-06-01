@@ -2,6 +2,7 @@ import sys
 import chat
 import json
 import re
+import random
 
 from datetime import datetime
 from typing_extensions import TypedDict
@@ -17,6 +18,7 @@ from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langgraph.constants import START, END
 from langchain_core.tools import BaseTool
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.runnables.graph import CurveStyle, MermaidDrawMethod, NodeStyles
 
 import logging
 import sys
@@ -72,6 +74,7 @@ def show_info(message: str):
 class State(TypedDict):
     full_plan: str
     messages: Annotated[list, add_messages]
+    appendix: list[str]
     final_response: str
     report: str
 
@@ -229,6 +232,7 @@ async def to_operator(state: State, config: dict) -> str:
 async def Operator(state: State, config: dict) -> dict:
     logger.info(f"###### Operator ######")
     # logger.info(f"state: {state}")
+    appendix = state["appendix"] if "appendix" in state else []
 
     status_container = config.get("configurable", {}).get("status_container", None)
     response_container = config.get("configurable", {}).get("response_container", None)    
@@ -328,6 +332,9 @@ async def Operator(state: State, config: dict) -> dict:
             for url in image_url:
                 output_images += f"![{task}]({url})\n\n"
             body = f"# {task}\n\n{output_text}\n\n{output_images}"
+            
+            if output_images != "":
+                appendix.append(f"\n\n{output_images}")
         else:
             body = f"# {task}\n\n{output_text}\n\n"
 
@@ -343,7 +350,8 @@ async def Operator(state: State, config: dict) -> dict:
             "messages": [
                 HumanMessage(content=json.dumps(task)),
                 AIMessage(content=body)
-            ]
+            ],
+            "appendix": appendix
         }
 
 async def Reporter(state: State, config: dict) -> dict:
@@ -395,7 +403,12 @@ async def Reporter(state: State, config: dict) -> dict:
         response_container.info(result.content)
 
     key = f"artifacts/{request_id}_report.md"
-    chat.create_object(key, result.content)
+    time = f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    
+    appendix = state["appendix"] if "appendix" in state else []
+    values = '\n\n'.join(appendix)
+
+    chat.create_object(key, time + result.content + values)
 
     if chat.debug_mode == "Enable":
         status_container.info(get_status_msg("end"))
@@ -416,6 +429,8 @@ agent = ManusAgent(
     ]
 )
 
+manus_agent = agent.compile()
+
 async def run(question: str, tools: list[BaseTool], status_container, response_container, key_container, request_id):
     logger.info(f"request_id: {request_id}")
 
@@ -435,7 +450,22 @@ async def run(question: str, tools: list[BaseTool], status_container, response_c
         "tools": tools
     }
 
-    manus_agent = agent.compile()
+    # draw a graph
+    graph_diagram = manus_agent.get_graph().draw_mermaid_png(
+        draw_method=MermaidDrawMethod.API,
+        curve_style=CurveStyle.LINEAR
+    )    
+    random_id = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=8))
+    image_filename = f'workflow_{random_id}.png'
+    url = chat.upload_to_s3(graph_diagram, image_filename)
+    logger.info(f"url: {url}")
+
+    # add plan to report
+    key = f"artifacts/{request_id}_plan.md"
+    task = "실행 계획"
+    output_images = f"![{task}]({url})\n\n"
+    body = f"## {task}\n\n{output_images}"
+    chat.updata_object(key, body, 'prepend')
 
     value = None
     async for output in manus_agent.astream(inputs, config):

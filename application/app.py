@@ -15,7 +15,7 @@ st.set_page_config(page_title='MCP Manus', page_icon=None, layout="centered", in
 # Add CSS style for better checkbox visibility
 st.markdown("""
     <style>
-    /* 체크박스 스타일 개선 */
+    /* Improve checkbox style */
     .stAlert input[type="checkbox"] {
         width: 20px !important;
         height: 20px !important;
@@ -44,7 +44,7 @@ st.markdown("""
         text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
     }
     
-    /* 체크박스 라벨 스타일 */
+    /* Checkbox label style */
     .stAlert label {
         font-size: 14px !important;
         color: #333 !important;
