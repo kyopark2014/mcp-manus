@@ -9,6 +9,51 @@ import asyncio
 import logging
 import sys
 
+# title
+st.set_page_config(page_title='MCP Manus', page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
+
+# Add CSS style for better checkbox visibility
+st.markdown("""
+    <style>
+    /* 체크박스 스타일 개선 */
+    .stAlert input[type="checkbox"] {
+        width: 20px !important;
+        height: 20px !important;
+        margin: 0 5px 0 0 !important;
+        border: 2px solid #666 !important;
+        border-radius: 3px !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        background-color: white !important;
+    }
+    
+    .stAlert input[type="checkbox"]:checked {
+        background-color: white !important;
+        border-color: #666 !important;
+        position: relative;
+    }
+    
+    .stAlert input[type="checkbox"]:checked::after {
+        content: "✓";
+        color: #ff0000;
+        position: absolute;
+        left: 4px;
+        top: -3px;
+        font-size: 16px;
+        font-weight: bold;
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
+    }
+    
+    /* 체크박스 라벨 스타일 */
+    .stAlert label {
+        font-size: 14px !important;
+        color: #333 !important;
+        margin-left: 5px !important;
+        font-weight: 500 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
     format='%(filename)s:%(lineno)d | %(message)s',
@@ -17,9 +62,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("streamlit")
-
-# title
-st.set_page_config(page_title='MCP Manus', page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
 
 mode_descriptions = {
     "일상적인 대화": [

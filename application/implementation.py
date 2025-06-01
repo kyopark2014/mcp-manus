@@ -121,7 +121,7 @@ async def Coordinator(state: State, config: dict) -> dict:
 
     if chat.debug_mode == "Enable" and response_container is not None:
         try:
-            response_container.markdown(result.content)
+            response_container.info(result.content)
         except Exception as e:
             logger.error(f"Failed to update response container: {e}")
     
@@ -392,7 +392,7 @@ async def Reporter(state: State, config: dict) -> dict:
     logger.info(f"result of Reporter: {result}")
 
     if chat.debug_mode == "Enable":
-        response_container.markdown(result.content)
+        response_container.info(result.content)
 
     key = f"artifacts/{request_id}_report.md"
     chat.create_object(key, result.content)
