@@ -333,8 +333,9 @@ async def Operator(state: State, config: dict) -> dict:
                 output_images += f"![{task}]({url})\n\n"
             body = f"# {task}\n\n{output_text}\n\n{output_images}"
             
-            if output_images != "":
-                appendix.append(f"\n\n{output_images}")
+            logger.info(f"output_images: {output_images}")
+            appendix.append(f"{output_images}")
+            
         else:
             body = f"# {task}\n\n{output_text}\n\n"
 
@@ -407,6 +408,7 @@ async def Reporter(state: State, config: dict) -> dict:
     
     appendix = state["appendix"] if "appendix" in state else []
     values = '\n\n'.join(appendix)
+    logger.info(f"values: {values}")
 
     chat.create_object(key, time + result.content + values)
 
