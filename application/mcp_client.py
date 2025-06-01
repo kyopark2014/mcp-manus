@@ -65,8 +65,6 @@ def load_multiple_mcp_server_parameters(mcp_json):
 
     return server_info
 
-
-
 def show_status_message(response, st, debug_mode):
     image_url = []
     references = []

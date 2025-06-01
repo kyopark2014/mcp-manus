@@ -3,15 +3,14 @@ import chat
 import json
 import re
 import random
+import agent
+import asyncio
 
 from datetime import datetime
 from typing_extensions import TypedDict
 from stub import ManusAgent
-from langchain_core.prompts import PromptTemplate
-from langgraph.prebuilt.chat_agent_executor import AgentState
 from typing_extensions import Annotated, TypedDict
 from langgraph.graph.message import add_messages
-from typing import Literal
 
 from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
@@ -236,6 +235,7 @@ async def Operator(state: State, config: dict) -> dict:
 
     status_container = config.get("configurable", {}).get("status_container", None)
     response_container = config.get("configurable", {}).get("response_container", None)    
+    key_container = config.get("configurable", {}).get("key_container", None)
     tools = config.get("configurable", {}).get("tools", None)
 
     mcp_tools = get_mcp_tools(tools)
@@ -314,30 +314,21 @@ async def Operator(state: State, config: dict) -> dict:
                 tool_info.append(tool)
                 logger.info(f"tool_info: {tool_info}")
         
-        # Agent
-        agent, config = chat.create_agent(tool_info)
+        result, image_url = await agent.run(task, tool_info, status_container, response_container, key_container, "Disable")
+        
+        logger.info(f"response of Operator: {result}, {image_url}")
 
-        messages = [HumanMessage(content=json.dumps(task))]
-        response = await agent.ainvoke({"messages": messages}, config)
-        logger.info(f"response of Operator: {response}")
-
-        output_text = response["messages"][-1].content
-        logger.info(f"output_text: {output_text}")
-
-        if "image_url" in response:
-            image_url = response["image_url"]
-            logger.info(f"image_url: {image_url}")
-
+        if image_url:
             output_images = ""
             for url in image_url:
                 output_images += f"![{task}]({url})\n\n"
-            body = f"# {task}\n\n{output_text}\n\n{output_images}"
+            body = f"# {task}\n\n{result}\n\n{output_images}"
             
             logger.info(f"output_images: {output_images}")
             appendix.append(f"{output_images}")
-            
+        
         else:
-            body = f"# {task}\n\n{output_text}\n\n"
+            body = f"# {task}\n\n{result}\n\n"
 
         key = f"artifacts/{request_id}_steps.md"
         time = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -419,7 +410,7 @@ async def Reporter(state: State, config: dict) -> dict:
         "report": result.content
     }
 
-agent = ManusAgent(
+app = ManusAgent(
     state_schema=State,
     impl=[
         ("Coordinator", Coordinator),
@@ -431,7 +422,7 @@ agent = ManusAgent(
     ]
 )
 
-manus_agent = agent.compile()
+manus_agent = app.compile()
 
 async def run(question: str, tools: list[BaseTool], status_container, response_container, key_container, request_id):
     logger.info(f"request_id: {request_id}")

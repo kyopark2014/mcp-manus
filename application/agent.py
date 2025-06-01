@@ -328,25 +328,27 @@ async def run(question, tools, status_container, response_container, key_contain
     }
 
     references = []
+    final_output = None
     async for output in app.astream(inputs, config):
         for key, value in output.items():
             logger.info(f"--> key: {key}, value: {value}")
+            final_output = output
 
-            refs = extract_reference(value["messages"])
-            if refs:
-                for r in refs:
-                    references.append(r)
-                    logger.info(f"r: {r}")
+            # refs = extract_reference(value["messages"])
+            # if refs:
+            #     for r in refs:
+            #         references.append(r)
+            #         logger.info(f"r: {r}")
                 
-    result = value["messages"][-1].content
+    result = final_output["messages"][-1].content
 
-    logger.info(f"references: {references}")
-    if references:
-        ref = "\n\n### Reference\n"
-        for i, reference in enumerate(references):
-            ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
-        result += ref
+    # logger.info(f"references: {references}")
+    # if references:
+    #     ref = "\n\n### Reference\n"
+    #     for i, reference in enumerate(references):
+    #         ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+    #     result += ref
 
-    image_url = value["image_url"] if "image_url" in value else []
+    image_url = final_output["image_url"] if "image_url" in value else []
 
     return result, image_url

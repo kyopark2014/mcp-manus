@@ -15,6 +15,7 @@ import PyPDF2
 import csv
 import base64
 import agent
+import re
 
 from botocore.config import Config
 from langchain_aws import ChatBedrock
@@ -28,6 +29,7 @@ from PIL import Image
 from urllib import parse
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 import logging
 import sys
@@ -173,7 +175,6 @@ def save_chat_history(text, msg):
         memory_chain.chat_memory.add_ai_message(msg[:MSG_LENGTH])                          
     else:
         memory_chain.chat_memory.add_ai_message(msg) 
-
 
 def update(modelName, reasoningMode, debugMode, multiRegion, mcp):    
     global model_name, model_id, model_type, debug_mode, multi_region
@@ -1056,129 +1057,7 @@ def run_rag_with_knowledge_base(query, st):
     return msg, reference_docs
 
 #########################################################
-# Agent 
-#########################################################
-import re
-from langgraph.prebuilt import ToolNode
-from typing_extensions import Annotated, TypedDict
-from langgraph.graph.message import add_messages
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from typing import Literal
-from langgraph.graph import START, END, StateGraph
-
-def create_agent(tools):
-    tool_node = ToolNode(tools)
-
-    chatModel = get_chat(extended_thinking="Disable")
-    model = chatModel.bind_tools(tools)
-
-    class State(TypedDict):
-        messages: Annotated[list, add_messages]
-        image_url: list
-
-    def call_model(state: State, config):
-        logger.info(f"###### call_model ######")
-        # logger.info(f"state: {state['messages']}")
-
-        last_message = state['messages'][-1].content
-        logger.info(f"last message: {last_message}")
-        
-        # get image_url from state
-        image_url = state['image_url'] if 'image_url' in state else []
-        if isinstance(last_message, str) and (last_message.strip().startswith('{') or last_message.strip().startswith('[')):
-            try:                 
-                tool_result = json.loads(last_message)
-                if "path" in tool_result:
-                    logger.info(f"path: {tool_result['path']}")
-
-                    path = tool_result['path']
-                    if isinstance(path, list):
-                        for p in path:
-                            logger.info(f"image: {p}")
-                            if p.startswith('http') or p.startswith('https'):
-                                image_url.append(p)
-                    else:
-                        logger.info(f"image: {path}")
-                        if path.startswith('http') or path.startswith('https'):
-                            image_url.append(path)
-            except json.JSONDecodeError:
-                tool_result = last_message
-        if image_url:
-            logger.info(f"image_url: {image_url}")
-
-        system = (
-            "당신의 이름은 서연이고, 질문에 친근한 방식으로 대답하도록 설계된 대화형 AI입니다."
-            "상황에 맞는 구체적인 세부 정보를 충분히 제공합니다."
-            "모르는 질문을 받으면 솔직히 모른다고 말합니다."
-            "한국어로 답변하세요."
-        )
-
-        try:
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    ("system", system),
-                    MessagesPlaceholder(variable_name="messages"),
-                ]
-            )
-            chain = prompt | model
-                
-            response = chain.invoke(state["messages"])
-            logger.info(f"call_model: {response}")
-
-        except Exception:
-            response = AIMessage(content="답변을 찾지 못하였습니다.")
-
-            err_msg = traceback.format_exc()
-            logger.info(f"error message: {err_msg}")
-            # raise Exception ("Not able to request to LLM")
-
-        return {"messages": [response], "image_url": image_url}
-        
-    def should_continue(state: State) -> Literal["continue", "end"]:
-        logger.info(f"###### should_continue ######")
-
-        messages = state["messages"]    
-        last_message = messages[-1]
-        
-        if isinstance(last_message, AIMessage) and last_message.tool_calls:
-            tool_name = last_message.tool_calls[-1]['name']
-            logger.info(f"--- CONTINUE: {tool_name} ---")
-
-            if debug_mode == "Enable":
-                status_messages(last_message)
-                
-            return "continue"
-        else:
-            logger.info(f"--- END ---")
-            return "end"
-    
-    def buildChatAgent():
-        workflow = StateGraph(State)
-
-        workflow.add_node("agent", call_model)
-        workflow.add_node("action", tool_node)
-        workflow.add_edge(START, "agent")
-        workflow.add_conditional_edges(
-            "agent",
-            should_continue,
-            {
-                "continue": "action",
-                "end": END,
-            },
-        )
-        workflow.add_edge("action", "agent")
-        return workflow.compile() 
-
-    app = buildChatAgent()
-    config = {
-        "recursion_limit": 50
-    }
-
-    return app, config
-
-
-#########################################################
-# MCP RAG Agent
+# MCP Agent
 #########################################################
 def load_multiple_mcp_server_parameters():
     logger.info(f"mcp_json: {mcp_json}")
@@ -1232,267 +1111,6 @@ def tool_info(tools, st):
     # st.info(f"{tool_info}")
     st.info(f"Tools: {tool_list}")
 
-debug_messages = []
-
-def get_debug_messages():
-    global debug_messages
-    messages = debug_messages.copy()
-    debug_messages = []  # Clear messages after returning
-    return messages
-
-def push_debug_messages(type, contents):
-    global debug_messages
-    debug_messages.append({
-        type: contents
-    })
-
-image_url = []
-references = []
-
-def extract_reference(response):
-    references = []
-    for i, re in enumerate(response):
-        logger.info(f"message[{i}]: {re}")
-
-        if i==len(response)-1:
-            break
-
-        if isinstance(re, ToolMessage):            
-            try: 
-                # tavily
-                if isinstance(re.content, str) and "Title:" in re.content and "URL:" in re.content and "Content:" in re.content:
-                    logger.info("Tavily parsing...")                    
-                    items = re.content.split("\n\n")
-                    for i, item in enumerate(items):
-                        logger.info(f"item[{i}]: {item}")
-                        if "Title:" in item and "URL:" in item and "Content:" in item:
-                            try:
-                                # 정규식 대신 문자열 분할 방법 사용
-                                title_part = item.split("Title:")[1].split("URL:")[0].strip()
-                                url_part = item.split("URL:")[1].split("Content:")[0].strip()
-                                content_part = item.split("Content:")[1].strip()
-                                
-                                logger.info(f"title_part: {title_part}")
-                                logger.info(f"url_part: {url_part}")
-                                logger.info(f"content_part: {content_part}")
-                                
-                                references.append({
-                                    "url": url_part,
-                                    "title": title_part,
-                                    "content": content_part[:100] + "..." if len(content_part) > 100 else content_part
-                                })
-                            except Exception as e:
-                                logger.info(f"파싱 오류: {str(e)}")
-                                continue
-                
-                # check json format
-                if isinstance(re.content, str) and (re.content.strip().startswith('{') or re.content.strip().startswith('[')):
-                    tool_result = json.loads(re.content)
-                    logger.info(f"tool_result: {tool_result}")
-                else:
-                    tool_result = re.content
-                    logger.info(f"tool_result (not JSON): {tool_result}")
-
-                # ArXiv
-                if "papers" in tool_result:
-                    logger.info(f"size of papers: {len(tool_result['papers'])}")
-
-                    papers = tool_result['papers']
-                    for paper in papers:
-                        url = paper['url']
-                        title = paper['title']
-                        content = paper['abstract'][:100]
-                        logger.info(f"url: {url}, title: {title}, content: {content}")
-
-                        references.append({
-                            "url": url,
-                            "title": title,
-                            "content": content
-                        })
-                                
-                if isinstance(tool_result, list):
-                    logger.info(f"size of tool_result: {len(tool_result)}")
-                    for i, item in enumerate(tool_result):
-                        logger.info(f'item[{i}]: {item}')
-                        
-                        # RAG
-                        if "reference" in item:
-                            logger.info(f"reference: {item['reference']}")
-
-                            infos = item['reference']
-                            url = infos['url']
-                            title = infos['title']
-                            source = infos['from']
-                            logger.info(f"url: {url}, title: {title}, source: {source}")
-
-                            references.append({
-                                "url": url,
-                                "title": title,
-                                "content": item['contents'][:100]
-                            })
-
-                        # Others               
-                        if isinstance(item, str):
-                            try:
-                                item = json.loads(item)
-
-                                # AWS Document
-                                if "rank_order" in item:
-                                    references.append({
-                                        "url": item['url'],
-                                        "title": item['title'],
-                                        "content": item['context'][:100]
-                                    })
-                            except json.JSONDecodeError:
-                                logger.info(f"JSON parsing error: {item}")
-                                continue
-
-            except:
-                logger.info(f"fail to parsing..")
-                pass
-    return references
-
-def status_messages(message):
-    # type of message
-    if isinstance(message, AIMessage):
-        logger.info(f"status_messages (AIMessage): {message}")
-    elif isinstance(message, ToolMessage):
-        logger.info(f"status_messages (ToolMessage): {message}")
-    elif isinstance(message, HumanMessage):
-        logger.info(f"status_messages (HumanMessage): {message}")
-
-    if isinstance(message, AIMessage):
-        if message.content:
-            logger.info(f"content: {message.content}")
-            content = message.content
-            if len(content) > 500:
-                content = content[:500] + "..."       
-            push_debug_messages("text", content)
-        if hasattr(message, 'tool_calls') and message.tool_calls:
-            logger.info(f"Tool name: {message.tool_calls[0]['name']}")
-                
-            if 'args' in message.tool_calls[0]:
-                logger.info(f"Tool args: {message.tool_calls[0]['args']}")
-                    
-                args = message.tool_calls[0]['args']
-                if 'code' in args:
-                    logger.info(f"code: {args['code']}")
-                    push_debug_messages("text", args['code'])
-                elif message.tool_calls[0]['args']:
-                    status = f"Tool name: {message.tool_calls[0]['name']}  \nTool args: {message.tool_calls[0]['args']}"
-                    logger.info(f"status: {status}")
-                    push_debug_messages("text", status)
-
-    elif isinstance(message, ToolMessage):
-        if message.name:
-            logger.info(f"Tool name: {message.name}")
-            
-            if message.content:                
-                content = message.content
-                if len(content) > 500:
-                    content = content[:500] + "..."
-                logger.info(f"Tool result: {content}")                
-                status = f"Tool name: {message.name}  \nTool result: {content}"
-            else:
-                status = f"Tool name: {message.name}"
-
-            logger.info(f"status: {status}")
-            push_debug_messages("text", status)
-
-def extract_thinking_tag(response, st):
-    if response.find('<thinking>') != -1:
-        status = response[response.find('<thinking>')+10:response.find('</thinking>')]
-        logger.info(f"gent_thinking: {status}")
-        
-        if debug_mode=="Enable":
-            st.info(status)
-
-        if response.find('<thinking>') == 0:
-            msg = response[response.find('</thinking>')+12:]
-        else:
-            msg = response[:response.find('<thinking>')]
-        logger.info(f"msg: {msg}")
-    else:
-        msg = response
-
-    return msg
-
-async def mcp_rag_agent_multiple(query, historyMode, st):
-    server_params = load_multiple_mcp_server_parameters()
-    logger.info(f"server_params: {server_params}")
-
-    async with MultiServerMCPClient(server_params) as client:
-        ref = ""
-        with st.status("thinking...", expanded=True, state="running") as status:
-            tools = client.get_tools()
-            if debug_mode == "Enable":
-                tool_info(tools, st)
-                logger.info(f"tools: {tools}")
-
-            # react agent
-            # model = get_chat(extended_thinking="Disable")
-            # agent = create_react_agent(model, client.get_tools())
-
-            # langgraph agent
-            agent, config = create_agent(tools)
-
-            try:
-                response = await agent.ainvoke({"messages": query}, config)
-                logger.info(f"response: {response}")
-
-                result = response["messages"][-1].content
-                # logger.info(f"result: {result}") 
-
-                debug_msgs = get_debug_messages()
-                for msg in debug_msgs:
-                    logger.info(f"debug_msg: {msg}")
-                    if "image" in msg:
-                        st.image(msg["image"])
-                    elif "text" in msg:
-                        st.info(msg["text"])
-
-                image_url = response["image_url"] if "image_url" in response else []
-                logger.info(f"image_url: {image_url}")
-
-                for image in image_url:
-                    st.image(image)
-
-                references = extract_reference(response["messages"])
-                if references:
-                    ref = "\n\n### Reference\n"
-                    for i, reference in enumerate(references):
-                        ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
-                    result += ref
-
-                if model_type == "nova":
-                    result = extract_thinking_tag(result, st) # for nova
-
-                st.markdown(result)
-
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": result,
-                    "images": image_url if image_url else []
-                })
-
-                return result
-            except Exception as e:
-                logger.error(f"Error during agent invocation: {str(e)}")
-                raise Exception(f"Agent invocation failed: {str(e)}")
-
-
-def run_mcp_agent(query, historyMode, st):
-    result = asyncio.run(mcp_rag_agent_multiple(query, historyMode, st))
-    #result = asyncio.run(mcp_rag_agent_single(query, historyMode, st))
-
-    logger.info(f"result: {result}")
-    
-    return result
-
-
-#########################################################
-# MCP Agent
-#########################################################
 async def run_agent(query, historyMode, st):
     server_params = load_multiple_mcp_server_parameters()
     logger.info(f"server_params: {server_params}")
@@ -1524,7 +1142,6 @@ async def run_agent(query, historyMode, st):
 #########################################################
 # Manus
 #########################################################
-
 def get_tool_info(tools, st):    
     toolList = []
     for tool in tools:
@@ -1586,6 +1203,7 @@ async def run_manus(query, historyMode, st):
 
             st.markdown(response)
 
+            image_url = []
             st.session_state.messages.append({
                 "role": "assistant", 
                 "content": response,
