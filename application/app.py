@@ -4,7 +4,7 @@ import utils
 import json
 import knowledge_base as kb
 import mcp_config 
-import os
+import asyncio
 
 import logging
 import sys
@@ -288,13 +288,37 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             sessionState = ""
             chat.references = []
             chat.image_url = []
-            response = chat.run_mcp_agent(prompt, "Disable", st)
+            response, image_url = asyncio.run(chat.run_agent(prompt, "Disable", st))
+
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": response,
+                "images": image_url if image_url else []
+            })
+
+            st.write(response)
+            for url in image_url:
+                    logger.info(f"url: {url}")
+                    file_name = url[url.rfind('/')+1:]
+                    st.image(url, caption=file_name, use_container_width=True)
 
         elif mode == 'Agent (Chat)':
             sessionState = ""
             chat.references = []
             chat.image_url = []
-            response = chat.run_mcp_agent(prompt, "Enable", st)
+            response, image_url = asyncio.run(chat.run_agent(prompt, "Enable", st))
+
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": response,
+                "images": image_url if image_url else []
+            })
+
+            st.write(response)
+            for url in image_url:
+                    logger.info(f"url: {url}")
+                    file_name = url[url.rfind('/')+1:]
+                    st.image(url, caption=file_name, use_container_width=True)            
 
         elif mode == 'MANUS':
             sessionState = ""

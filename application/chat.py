@@ -14,6 +14,7 @@ import os
 import PyPDF2
 import csv
 import base64
+import agent
 
 from botocore.config import Config
 from langchain_aws import ChatBedrock
@@ -1488,6 +1489,38 @@ def run_mcp_agent(query, historyMode, st):
     
     return result
 
+
+#########################################################
+# MCP Agent
+#########################################################
+async def run_agent(query, historyMode, st):
+    server_params = load_multiple_mcp_server_parameters()
+    logger.info(f"server_params: {server_params}")
+
+    async with MultiServerMCPClient(server_params) as client:
+        with st.status("thinking...", expanded=True, state="running") as status:
+            tools = client.get_tools()
+
+            if debug_mode == "Enable":
+                tool_info(tools, st)
+                logger.info(f"tools: {tools}")
+
+            status_container = st.empty()            
+            key_container = st.empty()
+            response_container = st.empty()
+                        
+            result, image_url = await agent.run(query, tools, status_container, response_container, key_container, historyMode)            
+
+        if agent.response_msg:
+            with st.expander(f"수행 결과"):
+                response_msg = '\n\n'.join(agent.response_msg)
+                st.markdown(response_msg)
+
+        logger.info(f"result: {result}")       
+        logger.info(f"image_url: {image_url}")
+    
+    return result, image_url
+
 #########################################################
 # Manus
 #########################################################
@@ -1573,3 +1606,4 @@ def run_manus(query, historyMode, st):
     logger.info(f"result: {result}")
     
     return result
+
