@@ -1534,14 +1534,7 @@ def get_tool_info(tools, st):
     toolmsg = ', '.join(toolList)
     st.info(f"Tools: {toolmsg}")
 
-def show_implementation_info(message: str, st):
-    st.info(message)
-    logger.info(f"Implementation Info: {message}")
-
-async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
-    # implementation 모듈을 함수 내부에서 임포트
-    implementation.show_info.callback = lambda msg: show_implementation_info(msg, st)
-    
+async def run_manus(query, historyMode, st):
     server_params = load_multiple_mcp_server_parameters()
     logger.info(f"server_params: {server_params}")
     
@@ -1549,13 +1542,10 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
         response = ""
         with st.status("thinking...", expanded=True, state="running") as status:            
             tools = client.get_tools()
-            # logger.info(f"tools: {tools}")
 
             if debug_mode == "Enable":
                 get_tool_info(tools, st)
-
-            # langgraph agent
-            implementation.update_mcp_tools(tools)
+                logger.info(f"tools: {tools}")
 
             # request id
             request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -1568,8 +1558,12 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
             report_url = path + "/artifacts/" + request_id + ".html"
             logger.info(f"report_url: {report_url}")
             st.info(f"report_url: {report_url}")
+
+            status_container = st.empty()            
+            key_container = st.empty()
+            response_container = st.empty()
                                             
-            response = await implementation.run(query, request_id)
+            response = await implementation.run(query, tools, status_container, response_container, key_container,request_id)
             logger.info(f"response: {response}")
 
             # message queue
@@ -1597,13 +1591,6 @@ async def manus(query, model_type, historyMode, st, mcp_json, debug_mode):
                 "content": response,
                 "images": image_url if image_url else []
             })
-
-        return response
-
-def run_manus(query, historyMode, st):
-    # mcp_client 모듈을 함수 내부에서 임포트
-    result = asyncio.run(manus(query, model_type, historyMode, st, mcp_json, debug_mode))
-    logger.info(f"result: {result}")
     
-    return result
+    return response
 

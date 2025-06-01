@@ -324,24 +324,12 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             sessionState = ""
             chat.references = []
             chat.image_url = []
-            response = chat.run_manus(prompt, "Enable", st)
-            # import implementation
-            # implementation.write_result("Question: " + prompt)
 
-            # with st.status("thinking...", expanded=True, state="running") as status:
-            #     # response = manus.run(prompt)
-            #     response = chat.run_manus(prompt, "Disable", st)
-            #     logger.info(f"response: {response}")
+            response = asyncio.run(chat.run_manus(prompt, "Enable", st))
+            logger.info(f"response: {response}")
 
-            #     if response.find('<thinking>') != -1:
-            #         logger.info(f"Remove <thinking> tag.")
-            #         response = response[response.find('</thinking>')+12:]
-            #         logger.info(f"response without tag: {response}")
-
-            #     st.markdown(response)
-            #     st.session_state.messages.append({"role": "assistant", "content": response})
-
-            #     chat.save_chat_history(prompt, response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            chat.save_chat_history(prompt, response)
             
         else:
             stream = chat.general_conversation(prompt)
