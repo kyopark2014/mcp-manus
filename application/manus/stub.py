@@ -3,7 +3,6 @@ from typing import Callable, Any, Optional, Type
 from langgraph.constants import START, END  # noqa: F401
 from langgraph.graph import StateGraph
 
-
 def ManusAgent(
     *,
     state_schema: Optional[Type[Any]] = None,

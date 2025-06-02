@@ -3,20 +3,22 @@ import chat
 import json
 import re
 import random
+import string
+import os
 import agent
 
 from datetime import datetime
 from typing_extensions import TypedDict
-from stub import ManusAgent
+from manus.stub import ManusAgent
 from typing_extensions import Annotated, TypedDict
 from langgraph.graph.message import add_messages
 
-from template import get_prompt_template
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langgraph.constants import START, END
 from langchain_core.tools import BaseTool
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables.graph import CurveStyle, MermaidDrawMethod, NodeStyles
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 import logging
 import sys
@@ -47,6 +49,10 @@ response_msg = []
 
 import utils
 config = utils.load_config()
+
+def get_prompt_template(prompt_name: str) -> str:
+    template = open(os.path.join(os.path.dirname(__file__), f"{prompt_name}.md")).read()
+    return template
 
 def get_mcp_tools(tools):
     mcp_tools = []
@@ -473,3 +479,59 @@ async def run(question: str, tools: list[BaseTool], status_container, response_c
         return value["report"]
     else:
         return value["final_response"]
+
+#########################################################
+# Manus
+#########################################################
+def get_tool_info(tools, st):    
+    toolList = []
+    for tool in tools:
+        name = tool.name
+        toolList.append(name)
+    
+    toolmsg = ', '.join(toolList)
+    st.info(f"Tools: {toolmsg}")
+
+async def run_manus(query, historyMode, st):
+    server_params = chat.load_multiple_mcp_server_parameters()
+    logger.info(f"server_params: {server_params}")
+    
+    async with MultiServerMCPClient(server_params) as client:
+        response = ""
+        with st.status("thinking...", expanded=True, state="running") as status:            
+            tools = client.get_tools()
+
+            if chat.debug_mode == "Enable":
+                get_tool_info(tools, st)
+                logger.info(f"tools: {tools}")
+
+            # request id
+            request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            template = open(os.path.join(os.path.dirname(__file__), f"report.html")).read()
+            template = template.replace("{request_id}", request_id)
+            template = template.replace("{sharing_url}", chat.path)
+            key = f"artifacts/{request_id}.html"
+            chat.create_object(key, template)
+
+            report_url = chat.path + "/artifacts/" + request_id + ".html"
+            logger.info(f"report_url: {report_url}")
+            st.info(f"report_url: {report_url}")
+
+            status_container = st.empty()            
+            key_container = st.empty()
+            response_container = st.empty()
+                                            
+            response = await run(query, tools, status_container, response_container, key_container,request_id)
+            logger.info(f"response: {response}")
+
+            st.markdown(response)
+
+            image_url = []
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": response,
+                "images": image_url if image_url else []
+            })
+    
+    return response
+

@@ -294,7 +294,7 @@ def extract_reference(response):
                 pass
     return references
 
-async def run_m (question, tools, status_container, response_container, key_container, historyMode):
+async def run(question, tools, status_container, response_container, key_container, historyMode):
     global status_msg, response_msg
     status_msg = []
     response_msg = []

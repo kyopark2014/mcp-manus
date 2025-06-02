@@ -3,13 +3,8 @@ import info
 import boto3
 import traceback
 import uuid
-import asyncio
 import json
-import mcp_client
 import re
-import implementation as manus
-import random
-import string
 import os
 import PyPDF2
 import csv
@@ -1138,59 +1133,4 @@ async def run_agent(query, historyMode, st):
         logger.info(f"image_url: {image_url}")
     
     return result, image_url
-
-#########################################################
-# Manus
-#########################################################
-def get_tool_info(tools, st):    
-    toolList = []
-    for tool in tools:
-        name = tool.name
-        toolList.append(name)
-    
-    toolmsg = ', '.join(toolList)
-    st.info(f"Tools: {toolmsg}")
-
-async def run_manus(query, historyMode, st):
-    server_params = load_multiple_mcp_server_parameters()
-    logger.info(f"server_params: {server_params}")
-    
-    async with MultiServerMCPClient(server_params) as client:
-        response = ""
-        with st.status("thinking...", expanded=True, state="running") as status:            
-            tools = client.get_tools()
-
-            if debug_mode == "Enable":
-                get_tool_info(tools, st)
-                logger.info(f"tools: {tools}")
-
-            # request id
-            request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-            template = open(os.path.join(os.path.dirname(__file__), f"report.html")).read()
-            template = template.replace("{request_id}", request_id)
-            template = template.replace("{sharing_url}", path)
-            key = f"artifacts/{request_id}.html"
-            create_object(key, template)
-
-            report_url = path + "/artifacts/" + request_id + ".html"
-            logger.info(f"report_url: {report_url}")
-            st.info(f"report_url: {report_url}")
-
-            status_container = st.empty()            
-            key_container = st.empty()
-            response_container = st.empty()
-                                            
-            response = await manus.run(query, tools, status_container, response_container, key_container,request_id)
-            logger.info(f"response: {response}")
-
-            st.markdown(response)
-
-            image_url = []
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": response,
-                "images": image_url if image_url else []
-            })
-    
-    return response
 

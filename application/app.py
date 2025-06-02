@@ -8,6 +8,7 @@ import asyncio
 
 import logging
 import sys
+import manus.implementation as manus
 
 # title
 st.set_page_config(page_title='MCP Manus', page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
@@ -367,7 +368,7 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             chat.references = []
             chat.image_url = []
 
-            response = asyncio.run(chat.run_manus(prompt, "Enable", st))
+            response = asyncio.run(manus.run_manus(prompt, "Enable", st))
             logger.info(f"response: {response}")
 
             st.session_state.messages.append({"role": "assistant", "content": response})
