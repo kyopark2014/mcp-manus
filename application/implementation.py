@@ -4,7 +4,6 @@ import json
 import re
 import random
 import agent
-import asyncio
 
 from datetime import datetime
 from typing_extensions import TypedDict
@@ -314,7 +313,7 @@ async def Operator(state: State, config: dict) -> dict:
                 tool_info.append(tool)
                 logger.info(f"tool_info: {tool_info}")
         
-        result, image_url = await agent.run(task, tool_info, status_container, response_container, key_container, "Disable")
+        result, image_url = await agent.run_manus(task, tool_info, status_container, response_container, key_container, "Disable")
         
         logger.info(f"response of Operator: {result}, {image_url}")
 

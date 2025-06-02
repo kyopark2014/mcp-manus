@@ -7,7 +7,7 @@ import asyncio
 import json
 import mcp_client
 import re
-import implementation
+import implementation as manus
 import random
 import string
 import os
@@ -1180,26 +1180,8 @@ async def run_manus(query, historyMode, st):
             key_container = st.empty()
             response_container = st.empty()
                                             
-            response = await implementation.run(query, tools, status_container, response_container, key_container,request_id)
+            response = await manus.run(query, tools, status_container, response_container, key_container,request_id)
             logger.info(f"response: {response}")
-
-            # message queue
-            while not implementation.message_queue.empty():
-                message = implementation.message_queue.get()
-                st.info(message)
-                # st.session_state.messages.append({
-                #     "role": "assistant", 
-                #     "content": message,
-                #     "images": []
-                # })
-
-            # references = extract_reference(response)                
-            # if references:
-            #     ref = "\n\n### Reference\n"
-            #     for i, reference in enumerate(references):
-            #         ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
-            #     logger.info(f"ref: {ref}")
-            #     response += ref
 
             st.markdown(response)
 

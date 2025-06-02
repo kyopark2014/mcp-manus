@@ -294,7 +294,65 @@ def extract_reference(response):
                 pass
     return references
 
-async def run(question, tools, status_container, response_container, key_container, historyMode):
+async def run_m (question, tools, status_container, response_container, key_container, historyMode):
+    global status_msg, response_msg
+    status_msg = []
+    response_msg = []
+
+    if chat.debug_mode == "Enable":
+        status_container.info(get_status_msg("start"))
+
+    if historyMode == "Enable":
+        app = buildChatAgentWithHistory(tools)
+        config = {
+            "recursion_limit": 50,
+            "configurable": {"thread_id": chat.userId},
+            "status_container": status_container,
+            "response_container": response_container,
+            "key_container": key_container,
+            "tools": tools
+        }
+    else:
+        app = buildChatAgent(tools)
+        config = {
+            "recursion_limit": 50,
+            "status_container": status_container,
+            "response_container": response_container,
+            "key_container": key_container,
+            "tools": tools
+        }
+
+    value = None
+    inputs = {
+        "messages": [HumanMessage(content=question)]
+    }
+
+    references = []
+    async for output in app.astream(inputs, config):
+        for key, value in output.items():
+            logger.info(f"--> key: {key}, value: {value}")
+
+            refs = extract_reference(value["messages"])
+            if refs:
+                for r in refs:
+                    references.append(r)
+                    logger.info(f"r: {r}")
+                
+    result = value["messages"][-1].content
+
+    logger.info(f"references: {references}")
+    if references:
+        ref = "\n\n### Reference\n"
+        for i, reference in enumerate(references):
+            ref += f"{i+1}. [{reference['title']}]({reference['url']}), {reference['content']}...\n"    
+        result += ref
+
+    image_url = value["image_url"] if "image_url" in value else []
+
+    return result, image_url
+
+
+async def run_manus(question, tools, status_container, response_container, key_container, historyMode):
     global status_msg, response_msg
     status_msg = []
     response_msg = []
