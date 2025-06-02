@@ -128,7 +128,7 @@ async def Coordinator(state: State, config: dict) -> dict:
 
     if chat.debug_mode == "Enable" and response_container is not None:
         try:
-            response_container.info(result.content)
+            response_container.info(result.content[:500])
         except Exception as e:
             logger.error(f"Failed to update response container: {e}")
     
@@ -318,9 +318,13 @@ async def Operator(state: State, config: dict) -> dict:
             if tool.name == next:
                 tool_info.append(tool)
                 logger.info(f"tool_info: {tool_info}")
-        
-        result, image_url = await agent.run_manus(task, tool_info, status_container, response_container, key_container, "Disable")
-        
+                
+        global status_msg, response_msg
+        logger.info(f"status_msg: {status_msg}")
+
+        result, image_url, status_msg, response_msg = await agent.run_manus(task, tool_info, status_container, response_container, key_container, "Disable", status_msg,response_msg)
+        logger.info(f"status_msg: {status_msg}")
+
         logger.info(f"response of Operator: {result}, {image_url}")
 
         if image_url:
@@ -331,9 +335,13 @@ async def Operator(state: State, config: dict) -> dict:
             
             logger.info(f"output_images: {output_images}")
             appendix.append(f"{output_images}")
+
+            response_container.info(f"{task}\n\n{body[:500]}")
         
         else:
             body = f"# {task}\n\n{result}\n\n"
+
+            response_container.info(body[:500])
 
         key = f"artifacts/{request_id}_steps.md"
         time = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -354,7 +362,7 @@ async def Operator(state: State, config: dict) -> dict:
 async def Reporter(state: State, config: dict) -> dict:
     logger.info(f"###### Reporter ######")
 
-    prompt_name = "Reporter"
+    prompt_name = "reporter"
 
     status_container = config.get("configurable", {}).get("status_container", None)
     response_container = config.get("configurable", {}).get("response_container", None)
@@ -409,7 +417,7 @@ async def Reporter(state: State, config: dict) -> dict:
     chat.create_object(key, time + result.content + values)
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg("end"))
+        status_container.info(get_status_msg("end)"))
 
     return {
         "report": result.content
@@ -521,17 +529,22 @@ async def run_manus(query, historyMode, st):
             key_container = st.empty()
             response_container = st.empty()
                                             
-            response = await run(query, tools, status_container, response_container, key_container,request_id)
+            response = await run(query, tools, status_container, response_container, key_container, request_id)
             logger.info(f"response: {response}")
 
-            st.markdown(response)
+        if response_msg:
+            with st.expander(f"수행 결과"):
+                response_msgs = '\n\n'.join(response_msg)
+                st.markdown(response_msgs)
 
-            image_url = []
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": response,
-                "images": image_url if image_url else []
-            })
+        st.markdown(response)
+
+        image_url = []
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": response,
+            "images": image_url if image_url else []
+        })
     
     return response
 

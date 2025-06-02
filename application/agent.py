@@ -26,7 +26,7 @@ def get_status_msg(status):
     global status_msg
     status_msg.append(status)
 
-    if status != "end":
+    if status != "end)":
         status = " -> ".join(status_msg)
         return "[status]\n" + status + "..."
     else: 
@@ -147,7 +147,7 @@ async def should_continue(state: State, config) -> Literal["continue", "end"]:
         return "continue"
     else:
         if chat.debug_mode == "Enable":
-            status_container.info(get_status_msg("end"))
+            status_container.info(get_status_msg("end)"))
 
         logger.info(f"--- END ---")
         return "end"
@@ -352,13 +352,13 @@ async def run(question, tools, status_container, response_container, key_contain
     return result, image_url
 
 
-async def run_manus(question, tools, status_container, response_container, key_container, historyMode):
+async def run_manus(question, tools, status_container, response_container, key_container, historyMode, previous_status_msg, previous_response_msg):
     global status_msg, response_msg
-    status_msg = []
-    response_msg = []
+    status_msg = previous_status_msg
+    response_msg = previous_response_msg
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg("start"))
+        status_container.info(get_status_msg("(start"))
 
     if historyMode == "Enable":
         app = buildChatAgentWithHistory(tools)
@@ -409,4 +409,4 @@ async def run_manus(question, tools, status_container, response_container, key_c
 
     image_url = final_output["image_url"] if "image_url" in value else []
 
-    return result, image_url
+    return result, image_url, status_msg, response_msg
