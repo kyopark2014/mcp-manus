@@ -25,6 +25,8 @@ from urllib import parse
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.store.memory import InMemoryStore
 
 import logging
 import sys
@@ -270,21 +272,47 @@ def get_chat(extended_thinking):
 
     return chat
 
+userId = uuid.uuid4().hex
+map_chain = dict() 
+
+checkpointers = dict() 
+memorystores = dict() 
+
+checkpointer = MemorySaver()
+memorystore = InMemoryStore()
+
+checkpointers[userId] = checkpointer
+memorystores[userId] = memorystore
+
+def clear_chat_history():
+    memory_chain = []
+    map_chain[userId] = memory_chain
+
 map_chain = dict() # general conversation
 def initiate():
     global userId
-    global memory_chain
+    global memory_chain,  checkpointers, memorystores, checkpointer, memorystore
     
     userId = uuid.uuid4().hex
     logger.info(f"userId: {userId}")
 
     if userId in map_chain:  
         memory_chain = map_chain[userId]
+
+        checkpointer = checkpointers[userId]
+        memorystore = memorystores[userId]
     else: 
         memory_chain = ConversationBufferWindowMemory(memory_key="chat_history", output_key='answer', return_messages=True, k=5)
         map_chain[userId] = memory_chain
 
+        checkpointer = MemorySaver()
+        memorystore = InMemoryStore()
+
+        checkpointers[userId] = checkpointer
+        memorystores[userId] = memorystore        
+
 initiate()
+
 
 def isKorean(text):
     # check korean

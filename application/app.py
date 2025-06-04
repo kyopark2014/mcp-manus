@@ -9,6 +9,8 @@ import asyncio
 import logging
 import sys
 import manus.implementation as manus
+import os
+import pwd
 
 # title
 st.set_page_config(page_title='MCP Manus', page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
@@ -64,6 +66,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger("streamlit")
 
+try:
+    user_info = pwd.getpwuid(os.getuid())
+    username = user_info.pw_name
+    home_dir = user_info.pw_dir
+    logger.info(f"Username: {username}")
+    logger.info(f"Home directory: {home_dir}")
+except (ImportError, KeyError):
+    username = "root"
+    logger.info(f"Username: {username}")
+    pass  
+
+if username == "root":
+    environment = "system"
+else:
+    environment = "user"
+logger.info(f"environment: {environment}")
+
 mode_descriptions = {
     "일상적인 대화": [
         "대화이력을 바탕으로 챗봇과 일상의 대화를 편안히 즐길수 있습니다."
@@ -108,14 +127,25 @@ with st.sidebar:
         st.subheader("⚙️ MCP Config")
 
         # Change radio to checkbox
-       # Change radio to checkbox
-        mcp_options = [
-            "default", "code interpreter", "aws document", "aws cost", "aws cli", 
-            "aws cloudwatch", "aws storage", "image generation", "aws diagram",
-            "knowledge base", "tavily", "perplexity", "ArXiv", "wikipedia", 
-            "filesystem", "terminal", "text editor", "context7", "puppeteer", 
-            "playwright", "firecrawl", "obsidian", "airbnb", "사용자 설정"
-        ]
+        if environment == "user":        
+            mcp_options = [
+                "default", "code interpreter", "aws document", "aws cost", "aws cli", 
+                "aws cloudwatch", "aws storage", "image generation", "aws diagram",
+                "knowledge base", "tavily", "perplexity", "ArXiv", "wikipedia", 
+                "filesystem", "terminal", "text editor", "context7", "puppeteer", 
+                "playwright", "firecrawl", "obsidian", "airbnb", 
+                "pubmed", "chembl", "clinicaltrial", "arxiv-manual", "tavily-manual",
+                "사용자 설정"
+            ]
+        else:
+            mcp_options = [ 
+                "default", "code interpreter", "aws document", "aws cost", "aws cli", 
+                "aws cloudwatch", "aws storage", "image generation", "aws diagram",
+                "knowledge base", "tavily", "ArXiv", "wikipedia", "pubmed", 
+                "filesystem", "terminal", "text editor", "playwright", "airbnb",
+                "pubmed", "chembl", "clinicaltrial", "arxiv-manual", "tavily-manual",
+                "사용자 설정"
+            ]
 
         mcp_selections = {}
         default_selections = ["default", "tavily", "aws cli", "code interpreter"]
@@ -242,6 +272,7 @@ if clear_button or "messages" not in st.session_state:
     uploaded_file = None
     
     st.session_state.greetings = False
+    chat.clear_chat_history()
     st.rerun()
 
 # Preview the uploaded image in the sidebar

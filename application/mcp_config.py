@@ -272,6 +272,66 @@ def load_config(mcp_type):
             }
         }
     
+    elif mcp_type == "pubmed":
+        return {
+            "mcpServers": {
+                "pubmed": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_pubmed.py"  
+                    ]
+                }
+            }
+        }
+    
+    elif mcp_type == "chembl":
+        return {
+            "mcpServers": {
+                "chembl": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_chembl.py"
+                    ]
+                }
+            }
+        }
+    
+    elif mcp_type == "clinicaltrial":
+        return {
+            "mcpServers": {
+                "clinicaltrial": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_clinicaltrial.py"
+                    ]
+                }
+            }
+        }
+    
+    elif mcp_type == "arxiv-manual":
+        return {
+            "mcpServers": {
+                "arxiv-manager": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_arxiv.py"
+                    ]
+                }
+            }
+        }
+    
+    elif mcp_type == "tavily-manual":
+        return {
+            "mcpServers": {
+                "arxiv-manager": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_tavily.py"
+                    ]
+                }
+            }
+        }
+    
     elif mcp_type == "사용자 설정":
         return mcp_user_config
 

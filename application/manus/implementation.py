@@ -320,11 +320,7 @@ async def Operator(state: State, config: dict) -> dict:
                 logger.info(f"tool_info: {tool_info}")
                 
         global status_msg, response_msg
-        logger.info(f"status_msg: {status_msg}")
-
-        result, image_url, status_msg, response_msg = await agent.run_manus(task, tool_info, status_container, response_container, key_container, "Disable", status_msg,response_msg)
-        logger.info(f"status_msg: {status_msg}")
-
+        result, image_url, status_msg, response_msg = await agent.run_manus(task, tool_info, status_container, response_container, key_container, "Disable", status_msg, response_msg)
         logger.info(f"response of Operator: {result}, {image_url}")
 
         if image_url:
@@ -503,6 +499,10 @@ def get_tool_info(tools, st):
 async def run_manus(query, historyMode, st):
     server_params = chat.load_multiple_mcp_server_parameters()
     logger.info(f"server_params: {server_params}")
+
+    global status_msg, response_msg
+    status_msg = []
+    response_msg = []
     
     async with MultiServerMCPClient(server_params) as client:
         response = ""
