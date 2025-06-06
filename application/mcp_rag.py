@@ -3,6 +3,7 @@ import boto3
 import traceback
 import logging
 import sys
+import utils
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -35,7 +36,6 @@ region = config["region"] if "region" in config else "us-west-2"
 print(f"region: {region}")
 
 numberOfDocs = 3
-multi_region = "Enable"
 model_name = "Claude 3.5 Haiku"
 knowledge_base_name = projectName
 
@@ -48,13 +48,19 @@ def retrieve_knowledge_base(query):
     functionName = f"lambda-rag-for-{projectName}"
     print(f"functionName: {functionName}")
 
+    mcp_env = utils.load_mcp_env()
+    grading_mode = mcp_env['grading_mode']
+    logger.info(f"grading_mode: {grading_mode}")
+    multi_region = mcp_env['multi_region']
+    logger.info(f"multi_region: {multi_region}")
+
     try:
         payload = {
             'function': 'search_rag',
             'knowledge_base_name': knowledge_base_name,
             'keyword': query,
             'top_k': numberOfDocs,
-            'grading': "Enable",
+            'grading': grading_mode,
             'model_name': model_name,
             'multi_region': multi_region
         }

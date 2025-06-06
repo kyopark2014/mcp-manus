@@ -207,6 +207,11 @@ with st.sidebar:
     multiRegion = 'Enable' if select_multiRegion else 'Disable'
     #print('multiRegion: ', multiRegion)
 
+    # RAG grading
+    select_grading = st.checkbox('Grading', value=False)
+    gradingMode = 'Enable' if select_grading else 'Disable'
+    # logger.info(f"gradingMode: {gradingMode}")
+
     uploaded_file = None
     if mode=='RAG' or mode=="Agent" or mode=="Agent (Chat)":
         st.subheader("📋 문서 업로드")
@@ -218,7 +223,7 @@ with st.sidebar:
     reasoningMode = 'Enable' if select_reasoning else 'Disable'
     logger.info(f"reasoningMode: {reasoningMode}")
 
-    chat.update(modelName, reasoningMode, debugMode, multiRegion, mcp=mcp)
+    chat.update(modelName, reasoningMode, debugMode, multiRegion, gradingMode, mcp=mcp)
     
     st.success(f"Connected to {modelName}", icon="💚")
     clear_button = st.button("대화 초기화", key="clear")

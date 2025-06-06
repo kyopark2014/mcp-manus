@@ -173,9 +173,19 @@ def save_chat_history(text, msg):
     else:
         memory_chain.chat_memory.add_ai_message(msg) 
 
-def update(modelName, reasoningMode, debugMode, multiRegion, mcp):    
+grading_mode = 'Disable'
+def update(modelName, reasoningMode, debugMode, multiRegion, gradingMode, mcp):    
     global model_name, model_id, model_type, debug_mode, multi_region
-    global models, mcp_json
+    global models, mcp_json, grading_mode
+
+    # load mcp.env    
+    mcp_env = utils.load_mcp_env()
+    logger.info(f"mcp_env: {mcp_env}")
+    if not mcp_env:
+        mcp_env = {
+            'multi_region': 'Disable',
+            'grading_mode': 'Disable'
+        }
     
     if model_name != modelName:
         model_name = modelName
@@ -192,10 +202,19 @@ def update(modelName, reasoningMode, debugMode, multiRegion, mcp):
     if multi_region != multiRegion:
         multi_region = multiRegion
         logger.info(f"multi_region: {multi_region}")
+        mcp_env['multi_region'] = multi_region
+
+    if grading_mode != gradingMode:
+        grading_mode = gradingMode
+        logger.info(f"grading_mode: {grading_mode}")
+        mcp_env['grading_mode'] = grading_mode
 
     mcp_json = mcp
     logger.info(f"mcp_json: {mcp_json}")
 
+    # update mcp.env    
+    utils.save_mcp_env(mcp_env)
+    logger.info(f"mcp.env updated: {mcp_env}")
 
 selected_chat = 0
 def get_chat(extended_thinking):
