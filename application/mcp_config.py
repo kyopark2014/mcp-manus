@@ -332,6 +332,18 @@ def load_config(mcp_type):
             }
         }
     
+    elif mcp_type == "use_aws":
+        return {
+            "mcpServers": {
+                "use_aws": {
+                    "command": "python",
+                    "args": [
+                        "application/mcp_server_use_aws.py"
+                    ]
+                }
+            }
+        }
+    
     elif mcp_type == "사용자 설정":
         return mcp_user_config
 

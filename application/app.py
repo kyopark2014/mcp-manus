@@ -130,7 +130,7 @@ with st.sidebar:
         if environment == "user":        
             mcp_options = [
                 "default", "code interpreter", "aws document", "aws cost", "aws cli", 
-                "aws cloudwatch", "aws storage", "image generation", "aws diagram",
+                "use_aws","aws cloudwatch", "aws storage", "image generation", "aws diagram",
                 "knowledge base", "tavily", "perplexity", "ArXiv", "wikipedia", 
                 "filesystem", "terminal", "text editor", "context7", "puppeteer", 
                 "playwright", "firecrawl", "obsidian", "airbnb", 
@@ -140,7 +140,7 @@ with st.sidebar:
         else:
             mcp_options = [ 
                 "default", "code interpreter", "aws document", "aws cost", "aws cli", 
-                "aws cloudwatch", "aws storage", "image generation", "aws diagram",
+                "use_aws", "aws cloudwatch", "aws storage", "image generation", "aws diagram",
                 "knowledge base", "tavily", "ArXiv", "wikipedia", "pubmed", 
                 "filesystem", "terminal", "text editor", "playwright", "airbnb",
                 "pubmed", "chembl", "clinicaltrial", "arxiv-manual", "tavily-manual",
@@ -148,7 +148,7 @@ with st.sidebar:
             ]
 
         mcp_selections = {}
-        default_selections = ["default", "tavily", "aws cli", "code interpreter"]
+        default_selections = ["default", "tavily", "use_aws", "code interpreter"]
 
         with st.expander("MCP 옵션 선택", expanded=True):            
             # 2개의 컬럼 생성

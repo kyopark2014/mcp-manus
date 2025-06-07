@@ -69,12 +69,6 @@ s3_bucket = config["s3_bucket"] if "s3_bucket" in config else None
 if s3_bucket is None:
     raise Exception ("No storage!")
 
-message_queue = Queue()
-def show_info(message: str):
-    logger.info(message)
-    if hasattr(show_info, 'callback'):
-        message_queue.put(message)
-
 class State(TypedDict):
     full_plan: str
     messages: Annotated[list, add_messages]
@@ -475,9 +469,6 @@ async def run(question: str, tools: list[BaseTool], status_container, response_c
             logger.info(f"Finished running: {key}")
     
     logger.info(f"value: {value}")
-
-    if "full_plan" in value:
-        show_info(f"{value['full_plan']}")
 
     if "report" in value:
         return value["report"]
