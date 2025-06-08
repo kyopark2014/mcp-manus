@@ -6,6 +6,7 @@ import random
 import string
 import os
 import agent
+import trans
 
 from datetime import datetime
 from typing_extensions import TypedDict
@@ -405,6 +406,12 @@ async def Reporter(state: State, config: dict) -> dict:
     logger.info(f"values: {values}")
 
     chat.create_object(key, time + result.content + values)
+
+    output_html = trans.trans_md_to_html(result.content + values)
+    chat.create_object(f"artifacts/{request_id}_report.html", output_html)
+    chat.upload_css()
+
+    logger.info(f"url: {chat.path}/artifacts/{request_id}_report.html")
 
     if chat.debug_mode == "Enable":
         status_container.info(get_status_msg("end)"))

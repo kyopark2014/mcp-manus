@@ -734,6 +734,24 @@ def get_summary_of_uploaded_file(file_name, st):
 
     return msg
 
+def upload_css():
+    # load styles.css
+    with open('styles.css', 'r') as file:
+        css = file.read()
+    
+    # upload to s3
+    s3_client = boto3.client(
+        service_name='s3',
+        region_name=bedrock_region
+    )
+    
+    s3_client.put_object(
+        Bucket=s3_bucket,
+        Key=f"artifacts/css/styles.css",    
+        Body=css,
+        ContentType='text/css'
+    )
+
 def create_object(key, body):
     """
     Create an object in S3 and return the URL. If the file already exists, append the new content.

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>당뇨병 치료제 종합 보고서</title>
+    <style>
+/* 기본 스타일 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* 헤더 스타일 */
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+/* 섹션 스타일 */
+section {
+    background-color: white;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+h2 {
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    font-size: 1.8rem;
+}
+
+h3 {
+    color: #34495e;
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+}
+
+/* 숙소 리스트 스타일 */
+.accommodation-item {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+}
+
+.accommodation-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 리스트 스타일 */
+ul, ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+li {
+    margin-bottom: 0.5rem;
+}
+
+/* 푸터 스타일 */
+footer {
+    background-color: #2c3e50;
+    color: white;
+    padding: 2rem 0;
+    margin-top: 3rem;
+    text-align: center;
+}
+
+footer p {
+    margin-bottom: 0.5rem;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    section {
+        padding: 1.5rem;
+    }
+    
+    .container {
+        padding: 0 15px;
+    }
+}
+
+/* 강조 텍스트 */
+strong {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* 결론 섹션 */
+.conclusion {
+    background-color: #f8f9fa;
+    border-left: 4px solid #2c3e50;
+}
+
+/* 추가 정보 섹션 */
+.additional-info ul {
+    list-style-type: none;
+    margin-left: 0;
+}
+
+.additional-info li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.additional-info li:last-child {
+    border-bottom: none;
+}
+
+/* 기본 스타일 */
+:root {
+    --primary-color: #5a67d8;
+    --secondary-color: #4c51bf;
+    --accent-color: #f6ad55;
+    --text-color: #2d3748;
+    --light-text: #718096;
+    --background-color: #f7fafc;
+    --card-bg: #ffffff;
+    --border-color: #e2e8f0;
+    --success-color: #48bb78;
+    --warning-color: #ed8936;
+    --booking-color: #38b2ac;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* 헤더 스타일 */
+header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+/* 섹션 스타일 */
+section {
+    margin-bottom: 3rem;
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+h2 {
+    color: var(--primary-color);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+h3 {
+    color: var(--secondary-color);
+    margin: 1.5rem 0 1rem;
+}
+
+p {
+    margin-bottom: 1rem;
+}
+
+/* 테이블 스타일 */
+.table-responsive {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+th, td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* 숙소 상세 정보 스타일 */
+.subtitle-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.pros-cons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.body, .cons {
+    flex: 1;
+    min-width: 300px;
+}
+
+.body h3 {
+    color: var(--success-color);
+}
+
+.cons h3 {
+    color: var(--warning-color);
+}
+
+.recommendation {
+    background-color: rgba(90, 103, 216, 0.05);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+/* 여행 팁 스타일 */
+.tips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.tip {
+    flex: 1;
+    min-width: 300px;
+    background-color: rgba(246, 173, 85, 0.05);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--accent-color);
+}
+
+/* 결론 스타일 */
+.final-message {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 2rem;
+    color: var(--primary-color);
+}
+
+/* 예약 버튼 스타일 */
+.booking-btn {
+    display: inline-block;
+    background-color: var(--booking-color);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.booking-btn:hover {
+    background-color: #2c9a94;
+}
+
+.booking-btn-large {
+    display: inline-block;
+    background-color: var(--booking-color);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1rem;
+    transition: background-color 0.3s ease;
+    text-align: center;
+}
+
+.booking-btn-large:hover {
+    background-color: #2c9a94;
+}
+
+.booking-container {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+/* 웹폰트 추가 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+/* 메인 콘텐츠 스타일 */
+main {
+    padding: 2rem 0;
+}
+
+/* 테이블 스타일 */
+.table-responsive {
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+th, td {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* 링크 스타일 */
+.booking-btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background-color: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.booking-btn:hover {
+    background-color: #2980b9;
+}
+
+/* 리스트 스타일 */
+.dot-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.dot-item {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.dot-item::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #3498db;
+}
+
+/* 푸터 스타일 */
+footer {
+    background-color: #2c3e50;
+    color: white;
+    padding: 2rem 0;
+    text-align: center;
+    margin-top: 2rem;
+}
+
+footer p {
+    margin: 0.5rem 0;
+    opacity: 0.8;
+}
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>당뇨병 치료제 종합 보고서</h1>
+            <p class="subtitle">2025년 06월 08일 15:42:36 기준</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="intro">
+            <p>부여 지역 4인 가족 숙박에 대해 조사한 결과를 알려드리겠습니다.</p>
+        </section>
+
+        <section class="content-section-0">
+            <h2>개요</h2>
+            <div class="subtitle-details">
+<div class="body">
+<ul class="dot-list">
+<p>당뇨병 치료제는 지속적으로 발전하고 있으며, 다양한 작용기전을 가진 약물들이 개발되어 환자 맞춤형 치료가 가능해지고 있습니다.</p>
+</ul>
+</div>
+</div>
+
+        </section>
+
+        <section class="content-section-1">
+            <h2>주요 치료제 분류 및 특징</h2>
+            <div class="subtitle-details">
+<div class="body">
+<h3>1. 최신 치료제</h3>
+<ul class="dot-list">
+<li class="dot-item">GLP-1 수용체 작용제 (예: 세마글루타이드)</li>
+<li class="dot-item">SGLT-2 억제제</li>
+<li class="dot-item">스마트 인슐린 제제</li>
+<li class="dot-item">복합 작용 펩타이드</li>
+</ul>
+</div>
+</div>
+<div class="subtitle-details">
+<div class="body">
+<h3>2. 주요 치료제별 작용기전 및 효과</h3>
+<ul class="dot-list">
+<p><strong>DPP-4 억제제</strong></p>
+<li class="dot-item">작용: 인크레틴 호르몬 분해 억제</li>
+<li class="dot-item">효과: 당화혈색소 0.5~1.0% 감소</li>
+<li class="dot-item">특징: 체중 변화 없음</li>
+<p><strong>SGLT-2 억제제</strong></p>
+<li class="dot-item">작용: 신장의 포도당 재흡수 억제</li>
+<li class="dot-item">효과: 당화혈색소 0.5~1.0% 감소</li>
+<li class="dot-item">특징: 체중 감소 효과</li>
+<p><strong>GLP-1 수용체 작용제</strong></p>
+<li class="dot-item">작용: 인크레틴 농도 증가</li>
+<li class="dot-item">효과: 당화혈색소 0.8~1.5% 감소</li>
+<li class="dot-item">특징: 체중 감소 3~4kg</li>
+</ul>
+</div>
+</div>
+
+        </section>
+
+        <section class="content-section-2">
+            <h2>최신 연구 동향</h2>
+            <div class="subtitle-details">
+<div class="body">
+<h3>1. 임상시험 현황</h3>
+<ul class="dot-list">
+<li class="dot-item">NCT00947427: 1형 당뇨병 환자 대상 Canakinumab 연구</li>
+<li class="dot-item">NCT04417127: HIV 환자의 당뇨병 통합 치료 연구</li>
+<li class="dot-item">NCT01462227: 저혈당 대응 메커니즘 개선 연구</li>
+</ul>
+</div>
+</div>
+<div class="subtitle-details">
+<div class="body">
+<h3>2. 최신 연구 결과</h3>
+<ul class="dot-list">
+<li class="dot-item">메트포민의 여성 장수 관련성 발견</li>
+<li class="dot-item">다파글리플로진의 간 섬유화 감소 효과 확인</li>
+</ul>
+</div>
+</div>
+
+        </section>
+
+        <section class="content-section-3">
+            <h2>환자 그룹별 권장 치료제</h2>
+            <div class="subtitle-details">
+<div class="body">
+<ul class="dot-list">
+<li>비만 환자: SGLT-2 억제제, GLP-1 수용체 작용제</li>
+<li>고령 환자: DPP-4 억제제</li>
+<li>신장기능 저하 환자: DPP-4 억제제</li>
+<li>심혈관 질환 위험군: SGLT-2 억제제, GLP-1 수용체 작용제</li>
+</ul>
+</div>
+</div>
+
+        </section>
+
+        <section class="content-section-4">
+            <h2>산업 동향</h2>
+            <div class="subtitle-details">
+<div class="body">
+<ul class="dot-list">
+<li class="dot-item">Medtronic의 당뇨병 사업부 독립 계획</li>
+<li class="dot-item">당뇨병 치료제-의료기기 복합제품 시장 성장 전망</li>
+</ul>
+</div>
+</div>
+
+        </section>
+
+        <section class="content-section-5">
+            <h2>결론</h2>
+            <div class="subtitle-details">
+<div class="body">
+<ul class="dot-list">
+<p>당뇨병 치료제는 지속적으로 발전하고 있으며, 환자 개인의 특성에 맞는 맞춤형 치료가 강조되고 있습니다. 모든 치료는 의사의 처방과 지도 하에 이루어져야 하며, 생활습관 개선과 함께 병행되어야 합니다.</p>
+</ul>
+</div>
+</div>
+
+        </section>
+
+        <section class="conclusion">
+            <p>구체적인 숙소 정보나 추가 문의사항이 있으시다면 말씀해 주세요.</p>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 부여 숙박 조사 보고서</p>
+            <p>최종 업데이트: 2025년 06월 08일</p>
+        </div>
+    </footer>
+</body>
+</html>
