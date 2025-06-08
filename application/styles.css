@@ -40,7 +40,7 @@ header h1 {
 section {
     background-color: white;
     padding: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -77,6 +77,20 @@ ul, ol {
 
 li {
     margin-bottom: 0.5rem;
+}
+
+/* 마크다운 리스트 스타일 */
+.dot-list {
+    list-style-type: disc;
+}
+
+.dot-list .dot-item {
+    list-style-type: disc;
+}
+
+.dot-list .star-item {
+    list-style-type: circle;
+    margin-left: 2rem;
 }
 
 /* 푸터 스타일 */
@@ -324,3 +338,20 @@ tr:nth-child(even) {
 
 /* 웹폰트 추가 */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+/* 마크다운 이미지 스타일 */
+.markdown-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem 0;
+}
+
+/* content-section-x 클래스들 사이의 간격 조정 */
+[class^="content-section-"] {
+    margin-bottom: 1rem;
+}
+
+[class^="content-section-"]:last-child {
+    margin-bottom: 0;
+}

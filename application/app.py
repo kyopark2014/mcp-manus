@@ -404,11 +404,26 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             chat.references = []
             chat.image_url = []
 
-            response = asyncio.run(manus.run_manus(prompt, "Enable", st))
+            response, image_url, urls = asyncio.run(manus.run_manus(prompt, "Enable", st))
             logger.info(f"response: {response}")
 
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            chat.save_chat_history(prompt, response)
+            st.markdown(response)            
+            
+            for url in image_url:
+                logger.info(f"url: {url}")
+                file_name = url[url.rfind('/')+1:]
+                st.image(url, caption=file_name, use_container_width=True)           
+
+            if urls:
+                with st.expander(f"최종 결과"):
+                    url_msg = '\n\n'.join(urls)
+                    st.markdown(url_msg)
+
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": response,
+                "images": image_url if image_url else []
+            })
             
         else:
             stream = chat.general_conversation(prompt)

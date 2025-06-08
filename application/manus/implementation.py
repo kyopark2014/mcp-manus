@@ -51,6 +51,10 @@ response_msg = []
 import utils
 config = utils.load_config()
 
+s3_bucket = config["s3_bucket"] if "s3_bucket" in config else None
+if s3_bucket is None:
+    raise Exception ("No storage!")
+
 def get_prompt_template(prompt_name: str) -> str:
     template = open(os.path.join(os.path.dirname(__file__), f"{prompt_name}.md")).read()
     return template
@@ -66,9 +70,33 @@ def get_mcp_tools(tools):
 
     return mcp_tools
 
-s3_bucket = config["s3_bucket"] if "s3_bucket" in config else None
-if s3_bucket is None:
-    raise Exception ("No storage!")
+async def create_final_report(request_id, question, body, urls):
+    # report.html
+    output_html = trans.trans_md_to_html(body, question)
+    chat.create_object(f"artifacts/{request_id}_report.html", output_html)
+
+    logger.info(f"url of html: {chat.path}/artifacts/{request_id}_report.html")
+    urls.append(f"{chat.path}/artifacts/{request_id}_report.html")
+
+    output = await utils.generate_pdf_report(body, request_id)
+    logger.info(f"result of generate_pdf_report: {output}")
+    if output: # reports/request_id.pdf         
+        pdf_filename = f"artifacts/{request_id}.pdf"
+        with open(pdf_filename, 'rb') as f:
+            pdf_bytes = f.read()
+            chat.upload_to_s3_artifacts(pdf_bytes, f"{request_id}.pdf")
+        logger.info(f"url of pdf: {chat.path}/artifacts/{request_id}.pdf")
+        urls.append(f"{chat.path}/artifacts/{request_id}.pdf")
+
+    logger.info(f"urls: {urls}")
+    
+    # report.md
+    key = f"artifacts/{request_id}_report.md"
+    time = f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"    
+    final_result = body + "\n\n" + f"## 최종 결과\n\n"+'\n\n'.join(urls)
+    
+    chat.updata_object(key, time + final_result, 'prepend')
+    return urls
 
 class State(TypedDict):
     full_plan: str
@@ -407,9 +435,10 @@ async def Reporter(state: State, config: dict) -> dict:
 
     chat.create_object(key, time + result.content + values)
 
-    output_html = trans.trans_md_to_html(result.content + values)
+    # report.html
+    question = state["messages"][0].content
+    output_html = trans.trans_md_to_html(result.content + values, question)
     chat.create_object(f"artifacts/{request_id}_report.html", output_html)
-    chat.upload_css()
 
     logger.info(f"url: {chat.path}/artifacts/{request_id}_report.html")
 
@@ -434,8 +463,9 @@ app = ManusAgent(
 
 manus_agent = app.compile()
 
-async def run(question: str, tools: list[BaseTool], status_container, response_container, key_container, request_id):
+async def run(question: str, tools: list[BaseTool], status_container, response_container, key_container, request_id, report_url):
     logger.info(f"request_id: {request_id}")
+    logger.info(f"report_url: {report_url}")
 
     if chat.debug_mode == "Enable":
         status_container.info(get_status_msg("start"))
@@ -473,14 +503,20 @@ async def run(question: str, tools: list[BaseTool], status_container, response_c
     value = None
     async for output in manus_agent.astream(inputs, config):
         for key, value in output.items():
-            logger.info(f"Finished running: {key}")
-    
+            logger.info(f"Finished running: {key}")    
     logger.info(f"value: {value}")
-
+    
     if "report" in value:
-        return value["report"]
+        result = value["report"]
     else:
-        return value["final_response"]
+        result = value["final_response"]    
+    logger.info(f"result: {result}")
+
+    urls = [report_url] if report_url else []    
+    urls = await create_final_report(request_id, question, result, urls)
+    logger.info(f"urls: {urls}")
+
+    return result, urls
 
 #########################################################
 # Manus
@@ -527,7 +563,7 @@ async def run_manus(query, historyMode, st):
             key_container = st.empty()
             response_container = st.empty()
                                             
-            response = await run(query, tools, status_container, response_container, key_container, request_id)
+            response, urls = await run(query, tools, status_container, response_container, key_container, request_id, report_url)
             logger.info(f"response: {response}")
 
         if response_msg:
@@ -535,14 +571,7 @@ async def run_manus(query, historyMode, st):
                 response_msgs = '\n\n'.join(response_msg)
                 st.markdown(response_msgs)
 
-        st.markdown(response)
-
         image_url = []
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": response,
-            "images": image_url if image_url else []
-        })
     
-    return response
+    return response, image_url, urls
 

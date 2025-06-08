@@ -1,34 +1,23 @@
 import logging
 import sys
 import json
+import os
 
-#logging
-def CreateLogger(logger_name):
-    logger = logging.getLogger(logger_name)
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
-    if len(logger.handlers) > 0:
-        return logger
-
-    logger.setLevel(logging.INFO)
-    #formatter = logging.Formatter('%(asctime)s | %(filename)s:%(lineno)d | %(levelname)s | %(message)s')
-    #formatter = logging.Formatter('%(asctime)s | %(filename)s:%(lineno)d | %(message)s')
-    formatter = logging.Formatter('%(filename)s:%(lineno)d | %(message)s')
-
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.INFO)
-    stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler) 
-
-    try:
-        with open("/home/config.json", "r", encoding="utf-8") as f:
-            file_handler = logging.FileHandler('/var/log/application/logs.log')
-            file_handler.setLevel(logging.INFO)
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
-    except Exception:
-        logger.info(f"Not available log saving")
-
-    return logger
+logging.basicConfig(
+    level=logging.INFO,  # Default to INFO level
+    format='%(filename)s:%(lineno)d | %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
+logger = logging.getLogger("aws-log")
 
 def get_contents_type(file_name):
     if file_name.lower().endswith((".jpg", ".jpeg")):
@@ -89,3 +78,82 @@ def load_mcp_env():
 def save_mcp_env(mcp_env):
     with open("application/mcp.env", "w", encoding="utf-8") as f:
         json.dump(mcp_env, f)
+
+async def generate_pdf_report(report_content: str, filename: str) -> str:
+    """
+    Generates a PDF report from the research findings.
+    
+    Args:
+        report_content: The content to be converted into PDF format
+        filename: Base name for the generated PDF file
+        
+    Returns:
+        A message indicating the result of PDF generation
+    """
+    logger.info(f'###### generate_pdf_report ######')
+    
+    try:
+        # Ensure directory exists
+        os.makedirs("artifacts", exist_ok=True)
+        
+        # Set up the PDF file
+        filepath = f"artifacts/{filename}.pdf"
+        logger.info(f"filepath: {filepath}")
+
+        doc = SimpleDocTemplate(filepath, pagesize=letter)
+        
+        # Register TTF font directly (specify path to NanumGothic font file)
+        font_path = "assets/NanumGothic-Regular.ttf"  # Change to actual TTF file path
+        pdfmetrics.registerFont(TTFont('NanumGothic', font_path))
+        
+        # Create styles
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(name='Normal_KO', 
+                                fontName='NanumGothic', 
+                                fontSize=10,
+                                spaceAfter=12))  # 문단 간격 증가
+        styles.add(ParagraphStyle(name='Heading1_KO', 
+                                fontName='NanumGothic', 
+                                fontSize=16,
+                                spaceAfter=20,  # 제목 후 여백 증가
+                                textColor=colors.HexColor('#0000FF')))  # 파란색
+        styles.add(ParagraphStyle(name='Heading2_KO', 
+                                fontName='NanumGothic', 
+                                fontSize=14,
+                                spaceAfter=16,  # 제목 후 여백 증가
+                                textColor=colors.HexColor('#0000FF')))  # 파란색
+        styles.add(ParagraphStyle(name='Heading3_KO', 
+                                fontName='NanumGothic', 
+                                fontSize=12,
+                                spaceAfter=14,  # 제목 후 여백 증가
+                                textColor=colors.HexColor('#0000FF')))  # 파란색
+        
+        # Process content
+        elements = []
+        lines = report_content.split('\n')
+        
+        for line in lines:
+            if line.startswith('# '):
+                elements.append(Paragraph(line[2:], styles['Heading1_KO']))
+            elif line.startswith('## '):
+                elements.append(Paragraph(line[3:], styles['Heading2_KO']))
+            elif line.startswith('### '):
+                elements.append(Paragraph(line[4:], styles['Heading3_KO']))
+            elif line.strip():  # Skip empty lines
+                elements.append(Paragraph(line, styles['Normal_KO']))
+        
+        # Build PDF
+        doc.build(elements)
+        
+        return f"PDF report generated successfully: {filepath}"
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
+        
+        # Fallback to text file
+        try:
+            text_filepath = f"artifacts/{filename}.txt"
+            with open(text_filepath, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            return f"PDF generation failed. Saved as text file instead: {text_filepath}"
+        except Exception as text_error:
+            return f"Error generating report: {str(e)}. Text fallback also failed: {str(text_error)}"

@@ -1,5 +1,12 @@
 __pycache__
 
 *.md
+*.html
+*.css
+*.py
+*.md
+*.html
+*.css
+*.pdf
 
 html/

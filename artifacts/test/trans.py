@@ -1,16 +1,15 @@
 import os
 from datetime import datetime
 
-
-def trans_md_to_html(md_content):
+def trans_md_to_html(md_content, question):
     # Read styles.css content
-    with open('styles.css', 'r', encoding='utf-8') as f:
+    with open('application/styles.css', 'r', encoding='utf-8') as f:
         css_content = f.read()
 
     lines = md_content.split('\n')
     
     # Get main title from first # heading
-    title = ""
+    title = question
     for line in lines:
         if line.startswith('# '):
             title = line[2:]
@@ -21,16 +20,6 @@ def trans_md_to_html(md_content):
     for line in lines:
         if line.startswith('## '):
             subtitles.append(line[3:])
-
-        # elif line.startswith('### '):
-        #     html += f'<h3>{line[4:]}</h3>\n'
-        # elif line.startswith('#### '):
-        #     html += f'<h4>{line[5:]}</h4>\n'
-        # elif line.startswith('##### '):
-        #     html += f'<h5>{line[6:]}</h5>\n'
-        # elif line.startswith('###### '):
-        #     html += f'<h6>{line[7:]}</h6>\n'
-    
 
     # Create HTML template
     html_template = f"""<!DOCTYPE html>
@@ -52,11 +41,7 @@ def trans_md_to_html(md_content):
     </header>
 
     <main class="container">
-        <section class="intro">
-            <p>부여 지역 4인 가족 숙박에 대해 조사한 결과를 알려드리겠습니다.</p>
-        </section>
 """
-
     # Dynamically generate sections for each subtitle
     for i, subtitle in enumerate(subtitles):
         html_template += f"""
@@ -67,24 +52,25 @@ def trans_md_to_html(md_content):
 """
 
     html_template += """
-        <section class="conclusion">
-            <p>구체적인 숙소 정보나 추가 문의사항이 있으시다면 말씀해 주세요.</p>
-        </section>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; """ + str(datetime.now().year) + """ 부여 숙박 조사 보고서</p>
+            <p>&copy; """ + str(datetime.now().year) + f""" {title}</p>
             <p>최종 업데이트: """ + datetime.now().strftime('%Y년 %m월 %d일') + """</p>
         </div>
     </footer>
 </body>
 </html>"""
 
-    # Save HTML to file
-    output_file = "output.html"
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(html_template)
+# template of intro, conclusion
+        # <section class="intro">
+        #     <p>부여 지역 4인 가족 숙박에 대해 조사한 결과를 알려드리겠습니다.</p>
+        # </section>
+        # <section class="conclusion">
+        #     <p>구체적인 숙소 정보나 추가 문의사항이 있으시다면 말씀해 주세요.</p>
+        # </section>
+
     return html_template
 
 def convert_markdown_table(content):
@@ -143,6 +129,33 @@ def convert_section_content(content, section_title):
     current_subsection = None
     subsection_content = []
     
+    def process_bold_text(text):
+        """Convert **text** to <strong>text</strong>"""
+        processed_text = text
+        while '**' in processed_text:
+            start = processed_text.find('**')
+            end = processed_text.find('**', start + 2)
+            if end != -1:
+                bold_text = processed_text[start+2:end]
+                processed_text = processed_text[:start] + f'<strong>{bold_text}</strong>' + processed_text[end+2:]
+            else:
+                break
+        return processed_text
+
+    def process_image(text):
+        """Convert ![alt](url) to <img> tag"""
+        if '![' in text and '](' in text:
+            alt_start = text.find('![') + 2
+            alt_end = text.find(']', alt_start)
+            url_start = text.find('(', alt_end) + 1
+            url_end = text.find(')', url_start)
+            
+            if alt_end != -1 and url_end != -1:
+                alt_text = text[alt_start:alt_end]
+                url = text[url_start:url_end]
+                return f'<img src="{url}" alt="{alt_text}" class="markdown-image">'
+        return text
+    
     # Collect all content in the section
     for line in lines:
         if line.startswith(f'## {section_title}'):
@@ -169,19 +182,6 @@ def convert_section_content(content, section_title):
     has_table = any(line.strip().startswith('|') for line in section_content)
     has_h3 = any(line.startswith('### ') for line in section_content)
     
-    def process_bold_text(text):
-        """Convert **text** to <strong>text</strong>"""
-        processed_text = text
-        while '**' in processed_text:
-            start = processed_text.find('**')
-            end = processed_text.find('**', start + 2)
-            if end != -1:
-                bold_text = processed_text[start+2:end]
-                processed_text = processed_text[:start] + f'<strong>{bold_text}</strong>' + processed_text[end+2:]
-            else:
-                break
-        return processed_text
-    
     if has_table and not has_h3:
         table_content = []
         in_table = False
@@ -194,9 +194,13 @@ def convert_section_content(content, section_title):
                 html += convert_markdown_table('\n'.join(table_content))
                 table_content = []
                 if line.strip():
-                    html += f'<p>{process_bold_text(line.strip())}</p>\n'
+                    processed_line = process_bold_text(line.strip())
+                    processed_line = process_image(processed_line)
+                    html += f'<p>{processed_line}</p>\n'
             elif not in_table and line.strip():
-                html += f'<p>{process_bold_text(line.strip())}</p>\n'
+                processed_line = process_bold_text(line.strip())
+                processed_line = process_image(processed_line)
+                html += f'<p>{processed_line}</p>\n'
         
         # Process any remaining table content
         if table_content:
@@ -204,19 +208,55 @@ def convert_section_content(content, section_title):
     elif not has_h3:
         html += f'<div class="subtitle-details">\n'
         html += f'<div class="body">\n'
-        html += '<ul class="dot-list">\n'
+        
+        current_list_type = None
         for line in section_content:
             if line.strip():
                 if line.startswith('- '):
+                    if current_list_type != 'ul':
+                        if current_list_type == 'ol':
+                            html += '</ol>\n'
+                        html += '<ul class="dot-list">\n'
+                        current_list_type = 'ul'
                     processed_line = process_bold_text(line[2:])
+                    processed_line = process_image(processed_line)
                     html += f'<li class="dot-item">{processed_line}</li>\n'
-                elif line.startswith('1.') or line.startswith('2.') or line.startswith('3.') or line.startswith('4.'):
+                elif line.startswith('* '):
+                    if current_list_type != 'ul':
+                        if current_list_type == 'ol':
+                            html += '</ol>\n'
+                        html += '<ul class="dot-list">\n'
+                        current_list_type = 'ul'
+                    processed_line = process_bold_text(line[2:])
+                    processed_line = process_image(processed_line)
+                    html += f'<li class="star-item">{processed_line}</li>\n'
+                elif any(line.strip().startswith(f'{i}.') for i in range(1, 10)):
+                    if current_list_type != 'ol':
+                        if current_list_type == 'ul':
+                            html += '</ul>\n'
+                        html += '<ol>\n'
+                        current_list_type = 'ol'
+                    number = line.split('.', 1)[0]
                     processed_line = process_bold_text(line.split(".", 1)[1].strip())
-                    html += f'<li>{processed_line}</li>\n'
+                    processed_line = process_image(processed_line)
+                    html += f'<li value="{number}">{processed_line}</li>\n'
                 else:
+                    if current_list_type:
+                        if current_list_type == 'ol':
+                            html += '</ol>\n'
+                        elif current_list_type == 'ul':
+                            html += '</ul>\n'
+                        current_list_type = None
                     processed_line = process_bold_text(line.strip())
+                    processed_line = process_image(processed_line)
                     html += f'<p>{processed_line}</p>\n'
-        html += '</ul>\n'
+        
+        if current_list_type:
+            if current_list_type == 'ol':
+                html += '</ol>\n'
+            elif current_list_type == 'ul':
+                html += '</ul>\n'
+        
         html += '</div>\n'
         html += '</div>\n'
     
@@ -242,33 +282,85 @@ def process_subsection(title, content):
             else:
                 break
         return processed_text
+
+    def process_image(text):
+        """Convert ![alt](url) to <img> tag"""
+        if '![' in text and '](' in text:
+            alt_start = text.find('![') + 2
+            alt_end = text.find(']', alt_start)
+            url_start = text.find('(', alt_end) + 1
+            url_end = text.find(')', url_start)
+            
+            if alt_end != -1 and url_end != -1:
+                alt_text = text[alt_start:alt_end]
+                url = text[url_start:url_end]
+                return f'<img src="{url}" alt="{alt_text}" class="markdown-image">'
+        return text
     
     html += f'<div class="body">\n'
     html += f'<h3>{process_bold_text(title)}</h3>\n'
-    html += '<ul class="dot-list">\n'
     
+    current_list_type = None
     for line in content:
         if line.strip():
             if line.startswith('- '):
+                if current_list_type != 'ul':
+                    if current_list_type == 'ol':
+                        html += '</ol>\n'
+                    html += '<ul class="dot-list">\n'
+                    current_list_type = 'ul'
                 processed_line = process_bold_text(line[2:])
+                processed_line = process_image(processed_line)
                 html += f'<li class="dot-item">{processed_line}</li>\n'
-            elif line.startswith('1.') or line.startswith('2.') or line.startswith('3.') or line.startswith('4.'):
+            elif line.startswith('* '):
+                if current_list_type != 'ul':
+                    if current_list_type == 'ol':
+                        html += '</ol>\n'
+                    html += '<ul class="dot-list">\n'
+                    current_list_type = 'ul'
+                processed_line = process_bold_text(line[2:])
+                processed_line = process_image(processed_line)
+                html += f'<li class="star-item">{processed_line}</li>\n'
+            elif any(line.strip().startswith(f'{i}.') for i in range(1, 10)):
+                if current_list_type != 'ol':
+                    if current_list_type == 'ul':
+                        html += '</ul>\n'
+                    html += '<ol>\n'
+                    current_list_type = 'ol'
+                number = line.split('.', 1)[0]
                 processed_line = process_bold_text(line.split(".", 1)[1].strip())
-                html += f'<li>{processed_line}</li>\n'
+                processed_line = process_image(processed_line)
+                html += f'<li value="{number}">{processed_line}</li>\n'
             else:
+                if current_list_type:
+                    if current_list_type == 'ol':
+                        html += '</ol>\n'
+                    elif current_list_type == 'ul':
+                        html += '</ul>\n'
+                    current_list_type = None
                 processed_line = process_bold_text(line.strip())
+                processed_line = process_image(processed_line)
                 html += f'<p>{processed_line}</p>\n'
     
-    html += '</ul>\n'
+    if current_list_type:
+        if current_list_type == 'ol':
+            html += '</ol>\n'
+        elif current_list_type == 'ul':
+            html += '</ul>\n'
+    
     html += '</div>\n'
     html += '</div>\n'
     
     return html
 
-
 if __name__ == "__main__":
-    md_file = "a3y5wt1g_report.md"
+    md_file = "ex9p62ko_report.md"
     with open(md_file, 'r', encoding='utf-8') as f:
         md_content = f.read()
 
-    trans_md_to_html(md_content)
+    html_template = trans_md_to_html(md_content, "Subject")
+
+    # Save HTML to file
+    output_file = "output.html"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html_template)
