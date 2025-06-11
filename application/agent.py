@@ -26,7 +26,7 @@ def get_status_msg(status):
     global status_msg
     status_msg.append(status)
 
-    if status != "end)":
+    if status != "end":
         status = " -> ".join(status_msg)
         return "[status]\n" + status + "..."
     else: 
@@ -57,38 +57,27 @@ async def call_model(state: State, config):
         logger.info(f"tool_name: {tool_name}, content: {tool_content[:800]}")
 
         try:
-            # Handle empty tool content
-            if not tool_content:
-                logger.info(f"Empty tool content for {tool_name}")
-                return {"messages": [AIMessage(content="No results from tool execution.")], "image_url": image_url}
+            json_data = json.loads(tool_content)
+            logger.info(f"json_data: {json_data}")
+            if isinstance(json_data, dict) and "path" in json_data:
+                path = json_data["path"]
+                if isinstance(path, list):
+                    for url in path:
+                        image_url.append(url)
+                else:
+                    image_url.append(path)
 
-            # Try JSON parsing only if tool_content is a string
-            if isinstance(tool_content, str):
-                json_data = json.loads(tool_content)
-                logger.info(f"json_data: {json_data}")
-                if isinstance(json_data, dict) and "path" in json_data:
-                    path = json_data["path"]
-                    if isinstance(path, list):
-                        for url in path:
-                            image_url.append(url)
-                    else:
-                        image_url.append(path)
-
-                    logger.info(f"image_url: {image_url}")
-                    if chat.debug_mode == "Enable":
-                        response_container.info(f"Added path to image_url: {json_data['path']}")
-                        response_msg.append(f"Added path to image_url: {json_data['path']}")
+                logger.info(f"image_url: {image_url}")
+                if chat.debug_mode == "Enable":
+                    response_container.info(f"Added path to image_url: {json_data['path']}")
+                    response_msg.append(f"Added path to image_url: {json_data['path']}")
 
         except json.JSONDecodeError:
-            logger.info(f"JSON parsing failed for {tool_name}")
-            pass
-        except Exception as e:
-            logger.error(f"Error processing tool content: {e}")
             pass
 
         if chat.debug_mode == "Enable":
-            response_container.info(f"{tool_name}: {str(tool_content)[:800]}")
-            response_msg.append(f"{tool_name}: {str(tool_content)[:800]}")
+            response_container.info(f"{tool_name}: {tool_content[:800]}")
+            response_msg.append(f"{tool_name}: {tool_content[:800]}")
 
     if isinstance(last_message, AIMessage) and last_message.content:
         if chat.debug_mode == "Enable":
@@ -144,7 +133,7 @@ async def should_continue(state: State, config) -> Literal["continue", "end"]:
         if last_message.content:
             logger.info(f"last_message: {last_message.content}")
             if chat.debug_mode == "Enable":
-                response_container.info(f"{last_message.content[:800]}")
+                response_container.info(f"{last_message.content}")
                 response_msg.append(last_message.content)
 
         logger.info(f"tool_name: {tool_name}, tool_args: {tool_args}")
@@ -158,7 +147,7 @@ async def should_continue(state: State, config) -> Literal["continue", "end"]:
         return "continue"
     else:
         if chat.debug_mode == "Enable":
-            status_container.info(get_status_msg("end)"))
+            status_container.info(get_status_msg("end"))
 
         logger.info(f"--- END ---")
         return "end"
@@ -361,7 +350,6 @@ async def run(question, tools, status_container, response_container, key_contain
     image_url = value["image_url"] if "image_url" in value else []
 
     return result, image_url
-
 
 async def run_manus(question, tools, status_container, response_container, key_container, historyMode, previous_status_msg, previous_response_msg):
     global status_msg, response_msg

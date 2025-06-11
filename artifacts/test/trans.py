@@ -3,7 +3,7 @@ from datetime import datetime
 
 def trans_md_to_html(md_content, question):
     # Read styles.css content
-    with open('application/styles.css', 'r', encoding='utf-8') as f:
+    with open('styles.css', 'r', encoding='utf-8') as f:
         css_content = f.read()
 
     lines = md_content.split('\n')
