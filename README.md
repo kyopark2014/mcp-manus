@@ -347,3 +347,8 @@ Streamlit에서 보여주는 chatbot UI는 전체 결과를 보여주기 어려�
 이후, 최종적으로는 아래와 같은 결과 리포트가 생성됩니다. 리포트가 길어서 표시되지 않았지만, 최종 결과는 단계별 실행 결과를 모아서 장문의 리포트를 생성하게 됩니다.
 
 ![image](https://github.com/user-attachments/assets/4c6824fe-ef76-4390-b3e4-36b7f27d51bc)
+
+
+## Reference
+
+[Drug Discovery Agent based on Amazon Bedrock](https://github.com/hsr87/drug-discovery-agent)
