@@ -9,7 +9,6 @@ import os
 import PyPDF2
 import csv
 import base64
-import agent
 import re
 
 from botocore.config import Config
@@ -18,13 +17,12 @@ from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
-from langchain_mcp_adapters.client import MultiServerMCPClient
 from io import BytesIO
 from PIL import Image
 from urllib import parse
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 
@@ -653,8 +651,6 @@ def get_summary_of_uploaded_file(file_name, st):
         
         contents = doc.get()['Body'].read().decode('utf-8')
         
-        #contents = load_code(file_type, object)                
-                        
         msg = summary_of_code(contents, file_type)                  
         
     elif file_type == 'png' or file_type == 'jpeg' or file_type == 'jpg':
@@ -670,7 +666,6 @@ def get_summary_of_uploaded_file(file_name, st):
             st.info(status)
             
         image_obj = s3_client.get_object(Bucket=s3_bucket, Key=s3_prefix+'/'+file_name)
-        # print('image_obj: ', image_obj)
         
         image_content = image_obj['Body'].read()
         img = Image.open(BytesIO(image_content))
@@ -730,27 +725,8 @@ def get_summary_of_uploaded_file(file_name, st):
 
     global fileId
     fileId = uuid.uuid4().hex
-    # print('fileId: ', fileId)
 
     return msg
-
-# def upload_css():
-#     # load styles.css
-#     with open('application/styles.css', 'r') as file:
-#         css = file.read()
-    
-#     # upload to s3
-#     s3_client = boto3.client(
-#         service_name='s3',
-#         region_name=bedrock_region
-#     )
-    
-#     s3_client.put_object(
-#         Bucket=s3_bucket,
-#         Key=f"artifacts/styles.css",    
-#         Body=css,
-#         ContentType='text/css'
-#     )
 
 def create_object(key, body):
     """
@@ -1152,87 +1128,3 @@ def run_rag_with_knowledge_base(query, st):
         msg += ref
     
     return msg, reference_docs
-
-#########################################################
-# MCP Agent
-#########################################################
-def load_multiple_mcp_server_parameters():
-    logger.info(f"mcp_json: {mcp_json}")
-
-    mcpServers = mcp_json.get("mcpServers")
-    logger.info(f"mcpServers: {mcpServers}")
-  
-    server_info = {}
-    if mcpServers is not None:
-        command = ""
-        args = []
-        for server in mcpServers:
-            logger.info(f"server: {server}")
-
-            config = mcpServers.get(server)
-            logger.info(f"config: {config}")
-
-            if "command" in config:
-                command = config["command"]
-            if "args" in config:
-                args = config["args"]
-            if "env" in config:
-                env = config["env"]
-
-                server_info[server] = {
-                    "command": command,
-                    "args": args,
-                    "env": env,
-                    "transport": "stdio"
-                }
-            else:
-                server_info[server] = {
-                    "command": command,
-                    "args": args,
-                    "transport": "stdio"
-                }
-    logger.info(f"server_info: {server_info}")
-
-    return server_info
-
-def tool_info(tools, st):
-    tool_info = ""
-    tool_list = []
-    st.info("Tool 정보를 가져옵니다.")
-    for tool in tools:
-        tool_info += f"name: {tool.name}\n"    
-        if hasattr(tool, 'description'):
-            tool_info += f"description: {tool.description}\n"
-        tool_info += f"args_schema: {tool.args_schema}\n\n"
-        tool_list.append(tool.name)
-    # st.info(f"{tool_info}")
-    st.info(f"Tools: {tool_list}")
-
-async def run_agent(query, historyMode, st):
-    server_params = load_multiple_mcp_server_parameters()
-    logger.info(f"server_params: {server_params}")
-
-    async with MultiServerMCPClient(server_params) as client:
-        with st.status("thinking...", expanded=True, state="running") as status:
-            tools = client.get_tools()
-
-            if debug_mode == "Enable":
-                tool_info(tools, st)
-                logger.info(f"tools: {tools}")
-
-            containers = {
-                "status": st.empty(),
-                "notification": [st.empty() for _ in range(100)]
-            }
-                        
-            result, image_url = await agent.run(query, tools, containers, historyMode)            
-
-        if agent.response_msg:
-            with st.expander(f"수행 결과"):
-                response_msg = '\n\n'.join(agent.response_msg)
-                st.markdown(response_msg)
-
-        logger.info(f"result: {result}")       
-        logger.info(f"image_url: {image_url}")
-    
-    return result, image_url

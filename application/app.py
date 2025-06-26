@@ -1,6 +1,5 @@
 import streamlit as st 
 import chat
-import utils
 import json
 import knowledge_base as kb
 import mcp_config 
@@ -8,6 +7,7 @@ import asyncio
 
 import logging
 import sys
+import agent
 import manus.implementation as manus
 import os
 import pwd
@@ -363,11 +363,25 @@ if prompt := st.chat_input("메시지를 입력하세요."):
             
             show_references(reference_docs) 
 
-        elif mode == 'Agent':
+        elif mode == 'Agent' or mode == 'Agent (Chat)':
             sessionState = ""
-            chat.references = []
-            chat.image_url = []
-            response, image_url = asyncio.run(chat.run_agent(prompt, "Disable", st))
+
+            if mode == 'Agent':
+                history_mode = "Disable"
+            else:
+                history_mode = "Enable"
+
+            with st.status("thinking...", expanded=True, state="running") as status:
+                containers = {
+                    "tools": st.empty(),
+                    "status": st.empty(),
+                    "notification": [st.empty() for _ in range(100)]
+                }
+                response, image_url = asyncio.run(agent.run_agent(prompt, history_mode, containers))
+            
+            if agent.response_msg:
+                with st.expander(f"수행 결과"):
+                    st.markdown('\n\n'.join(agent.response_msg))
 
             st.session_state.messages.append({
                 "role": "assistant", 
@@ -380,24 +394,6 @@ if prompt := st.chat_input("메시지를 입력하세요."):
                     logger.info(f"url: {url}")
                     file_name = url[url.rfind('/')+1:]
                     st.image(url, caption=file_name, use_container_width=True)
-
-        elif mode == 'Agent (Chat)':
-            sessionState = ""
-            chat.references = []
-            chat.image_url = []
-            response, image_url = asyncio.run(chat.run_agent(prompt, "Enable", st))
-
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": response,
-                "images": image_url if image_url else []
-            })
-
-            st.write(response)
-            for url in image_url:
-                    logger.info(f"url: {url}")
-                    file_name = url[url.rfind('/')+1:]
-                    st.image(url, caption=file_name, use_container_width=True)            
 
         elif mode == 'MANUS':
             sessionState = ""

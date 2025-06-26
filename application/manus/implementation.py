@@ -521,7 +521,7 @@ def get_tool_info(tools, st):
     st.info(f"Tools: {toolmsg}")
 
 async def run_manus(query, historyMode, st):
-    server_params = chat.load_multiple_mcp_server_parameters()
+    server_params = agent.load_multiple_mcp_server_parameters()
     logger.info(f"server_params: {server_params}")
 
     global status_msg, response_msg
