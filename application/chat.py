@@ -1220,11 +1220,12 @@ async def run_agent(query, historyMode, st):
                 tool_info(tools, st)
                 logger.info(f"tools: {tools}")
 
-            status_container = st.empty()            
-            key_container = st.empty()
-            response_container = st.empty()
+            containers = {
+                "status": st.empty(),
+                "notification": [st.empty() for _ in range(100)]
+            }
                         
-            result, image_url = await agent.run(query, tools, status_container, response_container, key_container, historyMode)            
+            result, image_url = await agent.run(query, tools, containers, historyMode)            
 
         if agent.response_msg:
             with st.expander(f"수행 결과"):
@@ -1235,4 +1236,3 @@ async def run_agent(query, historyMode, st):
         logger.info(f"image_url: {image_url}")
     
     return result, image_url
-

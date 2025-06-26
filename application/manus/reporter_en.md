@@ -38,20 +38,20 @@ You should act as an objective and analytical reporter who:
 </guidelines>
 
 <report_structure>
-## Executive Summary
+1. Executive Summary
    - Summarize the purpose and key results of the overall analysis
 
-## Key Findings
+2. Key Findings
    - Organize the most important insights discovered across all analyses
 
-## Detailed Analysis
+3. Detailed Analysis
    - Create individual sections for each analysis result from the TXT file
    - Each section should include:
       - Detailed analysis description and methodology
       - Detailed analysis results and insights
       - References to relevant visualizations and artifacts
 
-## Conclusions & Recommendations
+4. Conclusions & Recommendations
    - Comprehensive conclusion based on all analysis results
    - Data-driven recommendations and suggestions for next steps
 </report_structure>

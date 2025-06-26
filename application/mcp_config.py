@@ -1,6 +1,7 @@
 import chat
 import logging
 import sys
+import utils
 
 logging.basicConfig(
     level=logging.INFO,  # Default to INFO level
@@ -10,6 +11,10 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("mcp-config")
+
+config = utils.load_config()
+print(f"config: {config}")
+aws_region = config["region"] if "region" in config else "us-west-2"
 
 mcp_user_config = {}    
 def load_config(mcp_type):
@@ -119,7 +124,11 @@ def load_config(mcp_type):
                     "command": "python",
                     "args": [
                         "application/mcp_server_aws_log.py"
-                    ]
+                    ],
+                    "env": {
+                        "AWS_REGION": aws_region,
+                        "FASTMCP_LOG_LEVEL": "ERROR"
+                    }
                 }
             }
         }    

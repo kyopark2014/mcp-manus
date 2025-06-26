@@ -48,6 +48,12 @@ def get_status_msg(status):
 
 response_msg = []
 
+index = 0
+def add_notification(container, message):
+    global index
+    container['notification'][index].info(message)
+    index += 1
+
 import utils
 config = utils.load_config()
 
@@ -114,16 +120,10 @@ async def Coordinator(state: State, config: dict) -> dict:
 
     prompt_name = "coordinator"
 
-    status_container = config.get("configurable", {}).get("status_container", None)
-    response_container = config.get("configurable", {}).get("response_container", None)
-    
-    logger.info(f"status_container: {status_container}")
-    if chat.debug_mode == "Enable" and status_container is not None:
-        try:
-            logger.info(f"-----> status_container")
-            status_container.info(get_status_msg(f"{prompt_name}"))
-        except Exception as e:
-            logger.error(f"Failed to update status container: {e}")
+    containers = config.get("configurable", {}).get("containers", None)
+
+    if chat.debug_mode == "Enable":
+        containers["status"].info(get_status_msg(f"{prompt_name}"))
 
     system_prompt=get_prompt_template(prompt_name)
     logger.info(f"system_prompt: {system_prompt}")
@@ -136,8 +136,8 @@ async def Coordinator(state: State, config: dict) -> dict:
         ]
     )
 
-    prompt = coordinator_prompt | llm 
-    result = prompt.invoke({
+    chain = coordinator_prompt | llm 
+    result = chain.invoke({
         "question": question
     })
     logger.info(f"result of Coordinator: {result}")
@@ -149,11 +149,8 @@ async def Coordinator(state: State, config: dict) -> dict:
         logger.info(f"next: END")
         final_response = result.content    
 
-    if chat.debug_mode == "Enable" and response_container is not None:
-        try:
-            response_container.info(result.content[:500])
-        except Exception as e:
-            logger.error(f"Failed to update response container: {e}")
+    if chat.debug_mode == "Enable":
+        add_notification(containers, result.content)
     
     return {
         "final_response": final_response
@@ -177,9 +174,7 @@ async def Planner(state: State, config: dict) -> dict:
     request_id = config.get("configurable", {}).get("request_id", "")
     logger.info(f"request_id: {request_id}")
 
-    status_container = config.get("configurable", {}).get("status_container", None)
-    response_container = config.get("configurable", {}).get("response_container", None)
-    key_container = config.get("configurable", {}).get("key_container", None)
+    containers = config.get("configurable", {}).get("containers", None)
     tools = config.get("configurable", {}).get("tools", None)
 
     mcp_tools = get_mcp_tools(tools)
@@ -187,7 +182,7 @@ async def Planner(state: State, config: dict) -> dict:
     prompt_name = "planner"
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg(f"{prompt_name}"))
+        containers["status"].info(get_status_msg(f"{prompt_name}"))
 
     system = get_prompt_template(prompt_name)
     # logger.info(f"system_prompt of planner: {system}")
@@ -202,15 +197,15 @@ async def Planner(state: State, config: dict) -> dict:
         ]
     )
 
-    prompt = planner_prompt | llm 
-    result = prompt.invoke({
+    chain = planner_prompt | llm 
+    result = chain.invoke({
         "mcp_tools": mcp_tools,
         "input": state
     })
     logger.info(f"Planner: {result.content}")
 
     if chat.debug_mode == "Enable":
-        key_container.info(result.content)
+        add_notification(containers, result.content)
 
     # Update the plan into s3
     key = f"artifacts/{request_id}_plan.md"
@@ -261,9 +256,7 @@ async def Operator(state: State, config: dict) -> dict:
     # logger.info(f"state: {state}")
     appendix = state["appendix"] if "appendix" in state else []
 
-    status_container = config.get("configurable", {}).get("status_container", None)
-    response_container = config.get("configurable", {}).get("response_container", None)    
-    key_container = config.get("configurable", {}).get("key_container", None)
+    containers = config.get("configurable", {}).get("containers", None)
     tools = config.get("configurable", {}).get("tools", None)
 
     mcp_tools = get_mcp_tools(tools)
@@ -278,7 +271,7 @@ async def Operator(state: State, config: dict) -> dict:
     prompt_name = "operator"
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg(f"{prompt_name}"))
+        containers["status"].info(get_status_msg(f"{prompt_name}"))
 
     system = get_prompt_template(prompt_name)
     # logger.info(f"system_prompt: {system}")
@@ -331,7 +324,7 @@ async def Operator(state: State, config: dict) -> dict:
     logger.info(f"task: {task}")
 
     if chat.debug_mode == "Enable":
-        response_container.info(f"{next}: {task}")
+        add_notification(containers, f"{next}: {task}")
 
     if next == "FINISHED":
         return
@@ -343,7 +336,7 @@ async def Operator(state: State, config: dict) -> dict:
                 logger.info(f"tool_info: {tool_info}")
                 
         global status_msg, response_msg
-        result, image_url, status_msg, response_msg = await agent.run_manus(task, tool_info, status_container, response_container, key_container, "Disable", status_msg, response_msg)
+        result, image_url, status_msg, response_msg = await agent.run_task(task, tool_info, None, containers, "Disable", status_msg, response_msg)
         logger.info(f"response of Operator: {result}, {image_url}")
 
         if image_url:
@@ -355,12 +348,12 @@ async def Operator(state: State, config: dict) -> dict:
             logger.info(f"output_images: {output_images}")
             appendix.append(f"{output_images}")
 
-            response_container.info(f"{task}\n\n{body[:500]}")
+            add_notification(containers, f"{task}\n\n{body[:500]}")
         
         else:
             body = f"# {task}\n\n{result}\n\n"
 
-            response_container.info(body[:500])
+            add_notification(containers, body[:500])
 
         key = f"artifacts/{request_id}_steps.md"
         time = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -383,11 +376,10 @@ async def Reporter(state: State, config: dict) -> dict:
 
     prompt_name = "reporter"
 
-    status_container = config.get("configurable", {}).get("status_container", None)
-    response_container = config.get("configurable", {}).get("response_container", None)
+    containers = config.get("configurable", {}).get("containers", None)
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg(f"{prompt_name}"))
+        containers["status"].info(get_status_msg(f"{prompt_name}"))
 
     request_id = config.get("configurable", {}).get("request_id", "")    
     
@@ -416,15 +408,15 @@ async def Reporter(state: State, config: dict) -> dict:
     question = state["messages"][0].content
     logger.info(f"question: {question}")
 
-    prompt = reporter_prompt | llm 
-    result = prompt.invoke({
+    chain = reporter_prompt | llm 
+    result = chain.invoke({
         "context": context,
         "question": question
     })
     logger.info(f"result of Reporter: {result}")
 
     if chat.debug_mode == "Enable":
-        response_container.info(result.content)
+        add_notification(containers, result.content)
 
     key = f"artifacts/{request_id}_report.md"
     time = f"# {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -443,7 +435,7 @@ async def Reporter(state: State, config: dict) -> dict:
     logger.info(f"url: {chat.path}/artifacts/{request_id}_report.html")
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg("end)"))
+        containers["status"].info(get_status_msg("end)"))
 
     return {
         "report": result.content
@@ -463,12 +455,12 @@ app = ManusAgent(
 
 manus_agent = app.compile()
 
-async def run(question: str, tools: list[BaseTool], status_container, response_container, key_container, request_id, report_url):
+async def run(question: str, tools: list[BaseTool], containers, request_id, report_url):
     logger.info(f"request_id: {request_id}")
     logger.info(f"report_url: {report_url}")
 
     if chat.debug_mode == "Enable":
-        status_container.info(get_status_msg("start"))
+        containers["status"].info(get_status_msg("start"))
         
     inputs = {
         "messages": [HumanMessage(content=question)],
@@ -477,9 +469,7 @@ async def run(question: str, tools: list[BaseTool], status_container, response_c
     config = {
         "request_id": request_id,
         "recursion_limit": 50,
-        "status_container": status_container,
-        "response_container": response_container,
-        "key_container": key_container,
+        "containers": containers,
         "tools": tools
     }
 
@@ -559,11 +549,12 @@ async def run_manus(query, historyMode, st):
             logger.info(f"report_url: {report_url}")
             st.info(f"report_url: {report_url}")
 
-            status_container = st.empty()            
-            key_container = st.empty()
-            response_container = st.empty()
+            containers = {
+                "status": st.empty(),
+                "notification": [st.empty() for _ in range(100)]
+            }
                                             
-            response, urls = await run(query, tools, status_container, response_container, key_container, request_id, report_url)
+            response, urls = await run(query, tools, containers, request_id, report_url)
             logger.info(f"response: {response}")
 
         if response_msg:
