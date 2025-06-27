@@ -169,7 +169,7 @@ def load_config(mcp_type):
                     "command": "npx",
                     "args": ["-y", "firecrawl-mcp"],
                     "env": {
-                        "FIRECRAWL_API_KEY": chat.firecrawl_key
+                        "FIRECRAWL_API_KEY": utils.firecrawl_key
                     }
                 }
             }
@@ -230,7 +230,7 @@ def load_config(mcp_type):
                     "command": "npx",
                     "args": ["-y", "tavily-mcp@0.1.4"],
                     "env": {
-                        "TAVILY_API_KEY": chat.tavily_key
+                        "TAVILY_API_KEY": utils.tavily_key
                     },
                 }
             }
