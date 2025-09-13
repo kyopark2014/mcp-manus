@@ -520,49 +520,51 @@ def get_tool_info(tools, st):
     toolmsg = ', '.join(toolList)
     st.info(f"Tools: {toolmsg}")
 
-async def run_manus(query, historyMode, st):
-    server_params = agent.load_multiple_mcp_server_parameters()
-    logger.info(f"server_params: {server_params}")
-
+async def run_manus(query, historyMode, st):    
     global status_msg, response_msg
     status_msg = []
     response_msg = []
+
+    server_params = agent.load_multiple_mcp_server_parameters()
+    logger.info(f"server_params: {server_params}")
+
+    client = MultiServerMCPClient(server_params)
+    tools = await client.get_tools()
+
+    tool_list = [tool.name for tool in tools]
+    logger.info(f"tool_list: {tool_list}")
     
-    async with MultiServerMCPClient(server_params) as client:
-        response = ""
-        with st.status("thinking...", expanded=True, state="running") as status:            
-            tools = client.get_tools()
+    response = ""
+    if chat.debug_mode == "Enable":
+        get_tool_info(tools, st)
+        logger.info(f"tools: {tools}")
 
-            if chat.debug_mode == "Enable":
-                get_tool_info(tools, st)
-                logger.info(f"tools: {tools}")
+    # request id
+    request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    template = open(os.path.join(os.path.dirname(__file__), f"report.html")).read()
+    template = template.replace("{request_id}", request_id)
+    template = template.replace("{sharing_url}", chat.path)
+    key = f"artifacts/{request_id}.html"
+    chat.create_object(key, template)
 
-            # request id
-            request_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-            template = open(os.path.join(os.path.dirname(__file__), f"report.html")).read()
-            template = template.replace("{request_id}", request_id)
-            template = template.replace("{sharing_url}", chat.path)
-            key = f"artifacts/{request_id}.html"
-            chat.create_object(key, template)
+    report_url = chat.path + "/artifacts/" + request_id + ".html"
+    logger.info(f"report_url: {report_url}")
+    st.info(f"report_url: {report_url}")
 
-            report_url = chat.path + "/artifacts/" + request_id + ".html"
-            logger.info(f"report_url: {report_url}")
-            st.info(f"report_url: {report_url}")
+    containers = {
+        "status": st.empty(),
+        "notification": [st.empty() for _ in range(100)]
+    }
+                                    
+    response, urls = await run(query, tools, containers, request_id, report_url)
+    logger.info(f"response: {response}")
 
-            containers = {
-                "status": st.empty(),
-                "notification": [st.empty() for _ in range(100)]
-            }
-                                            
-            response, urls = await run(query, tools, containers, request_id, report_url)
-            logger.info(f"response: {response}")
+    if response_msg:
+        with st.expander(f"수행 결과"):
+            response_msgs = '\n\n'.join(response_msg)
+            st.markdown(response_msgs)
 
-        if response_msg:
-            with st.expander(f"수행 결과"):
-                response_msgs = '\n\n'.join(response_msg)
-                st.markdown(response_msgs)
+    image_url = []
 
-        image_url = []
-    
     return response, image_url, urls
 
