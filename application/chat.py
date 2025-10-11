@@ -15,16 +15,37 @@ from botocore.config import Config
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from io import BytesIO
 from PIL import Image
 from urllib import parse
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-from langchain_core.messages import HumanMessage
+from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
+
+# Simple memory class to replace ConversationBufferWindowMemory
+class SimpleMemory:
+    def __init__(self, k=5):
+        self.k = k
+        self.chat_memory = SimpleChatMemory()
+    
+    def load_memory_variables(self, inputs):
+        return {"chat_history": self.chat_memory.messages[-self.k:] if len(self.chat_memory.messages) > self.k else self.chat_memory.messages}
+
+class SimpleChatMemory:
+    def __init__(self):
+        self.messages = []
+    
+    def add_user_message(self, message):
+        self.messages.append(HumanMessage(content=message))
+    
+    def add_ai_message(self, message):
+        self.messages.append(AIMessage(content=message))
+    
+    def clear(self):
+        self.messages = []
 
 import logging
 import sys
@@ -101,11 +122,17 @@ numberOfDocs = 4
 MSG_LENGTH = 100    
 
 def save_chat_history(text, msg):
-    memory_chain.chat_memory.add_user_message(text)
-    if len(msg) > MSG_LENGTH:
-        memory_chain.chat_memory.add_ai_message(msg[:MSG_LENGTH])                          
-    else:
-        memory_chain.chat_memory.add_ai_message(msg) 
+    global memory_chain
+    # Initialize memory_chain if it doesn't exist
+    if memory_chain is None:
+        initiate()
+    
+    if memory_chain and hasattr(memory_chain, 'chat_memory'):
+        memory_chain.chat_memory.add_user_message(text)
+        if len(msg) > MSG_LENGTH:
+            memory_chain.chat_memory.add_ai_message(msg[:MSG_LENGTH])                          
+        else:
+            memory_chain.chat_memory.add_ai_message(msg) 
 
 grading_mode = 'Disable'
 def update(modelName, reasoningMode, debugMode, multiRegion, gradingMode, mcp):    
@@ -233,29 +260,37 @@ memorystores = dict()
 
 checkpointer = MemorySaver()
 memorystore = InMemoryStore()
-
-checkpointers[userId] = checkpointer
-memorystores[userId] = memorystore
+memory_chain = None  # Initialize memory_chain as global variable
 
 def clear_chat_history():
-    memory_chain = []
+    global memory_chain
+    # Initialize memory_chain if it doesn't exist
+    if memory_chain is None:
+        initiate()
+    
+    if memory_chain and hasattr(memory_chain, 'chat_memory'):
+        memory_chain.chat_memory.clear()
+    else:
+        memory_chain = SimpleMemory(k=5)
     map_chain[userId] = memory_chain
 
 map_chain = dict() # general conversation
 def initiate():
     global userId
-    global memory_chain,  checkpointers, memorystores, checkpointer, memorystore
+    global memory_chain, checkpointer, memorystore, checkpointers, memorystores
     
     userId = uuid.uuid4().hex
     logger.info(f"userId: {userId}")
 
     if userId in map_chain:  
+        logger.info(f"memory exist. reuse it!")
         memory_chain = map_chain[userId]
 
         checkpointer = checkpointers[userId]
         memorystore = memorystores[userId]
     else: 
-        memory_chain = ConversationBufferWindowMemory(memory_key="chat_history", output_key='answer', return_messages=True, k=5)
+        logger.info(f"memory not exist. create new memory!")
+        memory_chain = SimpleMemory(k=5)
         map_chain[userId] = memory_chain
 
         checkpointer = MemorySaver()
@@ -853,6 +888,8 @@ def extract_and_display_s3_images(text, s3_client):
 # General Conversation
 #########################################################
 def general_conversation(query):
+    global memory_chain
+    initiate()  # Initialize memory_chain
     llm = get_chat(reasoning_mode)
 
     system = (
@@ -869,7 +906,10 @@ def general_conversation(query):
         ("human", human)
     ])
                 
-    history = memory_chain.load_memory_variables({})["chat_history"]
+    if memory_chain and hasattr(memory_chain, 'load_memory_variables'):
+        history = memory_chain.load_memory_variables({})["chat_history"]
+    else:
+        history = []
 
     try: 
         if reasoning_mode == "Disable":

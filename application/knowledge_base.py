@@ -6,7 +6,7 @@ import utils
 
 from langchain_aws import AmazonKnowledgeBasesRetriever
 from urllib import parse
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 
 import logging
